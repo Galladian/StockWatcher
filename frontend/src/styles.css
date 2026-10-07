@@ -122,3 +122,13 @@ table.ledger { width: 100%; border-collapse: collapse; font-size: 13px; font-var
 .cal { padding: 0 9px; font-size: 15px; line-height: 1; }
 .hidden-date { position: absolute; right: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; padding: 0; border: 0; }
 .hint { font-size: 12px; color: var(--muted); margin: 10px 0 0; }
+
+.label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.stat .label-row .label { margin: 0; }
+select.ccy { padding: 2px 6px; font-size: 12px; border-radius: 5px; }
+.cash { margin-top: 28px; }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; }
+.section-head h2 { margin: 0 0 10px; }
+.cash .card + .card { margin-top: 12px; }
+.ledger td input, .ledger td select { padding: 4px 6px; font-size: 13px; width: 100%; min-width: 80px; }
+.ledger td.actions { text-align: right; white-space: nowrap; }

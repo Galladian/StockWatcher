@@ -109,3 +109,14 @@ def get_quotes(tickers: list[str]) -> dict[str, dict | None]:
         return {}
     with ThreadPoolExecutor(max_workers=min(8, len(tickers))) as pool:
         return dict(zip(tickers, pool.map(get_quote, tickers)))
+
+
+def get_fx_rates(currencies) -> dict[str, Decimal | None]:
+    """Units of each currency per 1 USD (e.g. {'NZD': 1.73}). None if the rate is unavailable."""
+    need = sorted({c for c in currencies if c != "USD"})
+    quotes = get_quotes([f"USD{c}=X" for c in need])
+    out: dict[str, Decimal | None] = {}
+    for c in need:
+        q = quotes.get(f"USD{c}=X")
+        out[c] = q["price"] if q and q["price"] > 0 else None
+    return out

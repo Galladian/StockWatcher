@@ -3,14 +3,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import LoginForm from "./LoginForm";
 import { isoToDmy, localTodayIso, maskDmy, parseDmy } from "./dates";
 import {
-  addTransaction, deleteTransaction, fetchMe, fetchSummary, listTransactions,
-  type Transaction, type TxType,
+  CURRENCIES, addCash, addTransaction, deleteCash, deleteTransaction, fetchMe, fetchSummary,
+  listTransactions, updateCash, type CashAccount, type Transaction, type TxType,
 } from "./portfolioApi";
 
 // ---------- formatting ----------
-const usd = (v: number, max = 2) =>
-  v.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: max });
-const signedUsd = (v: number) => `${v >= 0 ? "+" : "-"}${usd(Math.abs(v))}`;
+const money = (v: number, ccy: string, max = 2) =>
+  new Intl.NumberFormat("en-NZ", { style: "currency", currency: ccy, maximumFractionDigits: max }).format(v);
+const signedMoney = (v: number, ccy: string) => `${v >= 0 ? "+" : "-"}${money(Math.abs(v), ccy)}`;
 const signedPct = (v: number | null) => (v === null ? "–" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`);
 const tone = (v: number | null) => (v === null ? "" : v >= 0 ? "pos" : "neg");
 const shares = (v: number | string) => Number(v).toLocaleString("en-US", { maximumFractionDigits: 6 });
@@ -21,50 +21,183 @@ function txTotal(t: Transaction): number {
   return t.type === "buy" ? gross + fees : t.type === "sell" ? gross - fees : gross;
 }
 
+// ---------- Cash ----------
+function CashRow({ c, shown, onChanged }: { c: CashAccount; shown: string; onChanged: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [label, setLabel] = useState(c.label);
+  const [currency, setCurrency] = useState(c.currency);
+  const [amount, setAmount] = useState(String(c.amount));
+
+  const save = useMutation({
+    mutationFn: () => updateCash(c.id, { label, currency, amount: amount.replace(/,/g, "") }),
+    onSuccess: () => { setEditing(false); onChanged(); },
+  });
+  const remove = useMutation({ mutationFn: () => deleteCash(c.id), onSuccess: onChanged });
+
+  if (editing)
+    return (
+      <tr>
+        <td><input value={label} onChange={(e) => setLabel(e.target.value)} maxLength={60} aria-label="Account name" /></td>
+        <td>
+          <select value={currency} onChange={(e) => setCurrency(e.target.value)} aria-label="Currency">
+            {CURRENCIES.map((x) => <option key={x}>{x}</option>)}
+          </select>
+        </td>
+        <td className="num"><input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} aria-label="Amount" /></td>
+        <td colSpan={2}>{save.error && <span className="form-error">{(save.error as Error).message}</span>}</td>
+        <td className="actions">
+          <button className="del" onClick={() => save.mutate()} disabled={save.isPending || !amount}>Save</button>{" "}
+          <button className="del" onClick={() => setEditing(false)}>Cancel</button>
+        </td>
+      </tr>
+    );
+
+  return (
+    <tr>
+      <td>{c.label}</td>
+      <td>{c.currency}</td>
+      <td className="num">{money(c.amount, c.currency)}</td>
+      <td className="num">{c.value === null ? "–" : money(c.value, shown)}</td>
+      <td>{c.weight === null ? "–" : `${c.weight.toFixed(1)}%`}</td>
+      <td className="actions">
+        <button className="del" onClick={() => setEditing(true)}>Edit</button>{" "}
+        <button className="del" onClick={() => { if (window.confirm(`Delete "${c.label}"?`)) remove.mutate(); }}>Delete</button>
+      </td>
+    </tr>
+  );
+}
+
+function CashSection({ cash, shown, total }: { cash: CashAccount[]; shown: string; total: number }) {
+  const qc = useQueryClient();
+  const changed = () => qc.invalidateQueries({ queryKey: ["summary"] });
+  const [label, setLabel] = useState("");
+  const [currency, setCurrency] = useState("NZD");
+  const [amount, setAmount] = useState("");
+
+  const add = useMutation({
+    mutationFn: () => addCash({ label, currency, amount: amount.replace(/,/g, "") }),
+    onSuccess: () => { changed(); setLabel(""); setAmount(""); },
+  });
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    add.mutate();
+  };
+
+  return (
+    <section className="cash">
+      <div className="section-head">
+        <h2>Cash</h2>
+        {cash.length > 0 && <span className="muted">{money(total, shown)} in total</span>}
+      </div>
+
+      {cash.length > 0 && (
+        <div className="card table-wrap">
+          <table className="ledger">
+            <thead>
+              <tr>
+                <th>Account</th><th>Currency</th><th className="num">Amount</th>
+                <th className="num">In {shown}</th><th>Weight</th><th />
+              </tr>
+            </thead>
+            <tbody>
+              {cash.map((c) => <CashRow key={`${c.id}-${c.label}-${c.currency}-${c.amount}`} c={c} shown={shown} onChanged={changed} />)}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <form className="card cash-form" onSubmit={submit}>
+        <div className="grid">
+          <label className="field">
+            Account name (optional)
+            <input value={label} onChange={(e) => setLabel(e.target.value)} maxLength={60} placeholder="Brokerage cash" />
+          </label>
+          <label className="field">
+            Currency
+            <select value={currency} onChange={(e) => setCurrency(e.target.value)}>
+              {CURRENCIES.map((x) => <option key={x}>{x}</option>)}
+            </select>
+          </label>
+          <label className="field">
+            Amount
+            <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="5000" />
+          </label>
+          <button className="primary" type="submit" disabled={add.isPending || !amount}>
+            {add.isPending ? "Adding…" : "Add cash"}
+          </button>
+        </div>
+        {add.error && <p className="form-error">{(add.error as Error).message}</p>}
+      </form>
+    </section>
+  );
+}
+
 // ---------- Holdings tab ----------
+function loadCurrency(): string {
+  try {
+    const saved = localStorage.getItem("portfolioCurrency");
+    return saved && CURRENCIES.includes(saved) ? saved : "NZD";
+  } catch {
+    return "NZD";
+  }
+}
+
 function Holdings() {
+  const [currency, setCurrency] = useState(loadCurrency);
+  const pickCurrency = (c: string) => {
+    setCurrency(c);
+    try { localStorage.setItem("portfolioCurrency", c); } catch { /* ignore */ }
+  };
+
   const { data, error, isLoading, isFetching, refetch, dataUpdatedAt } = useQuery({
-    queryKey: ["summary"],
-    queryFn: fetchSummary,
+    queryKey: ["summary", currency],
+    queryFn: () => fetchSummary(currency),
     staleTime: 30_000,
     refetchInterval: 60_000,
+    placeholderData: (prev) => prev, // keep the old figures on screen while a new currency loads
   });
 
   if (isLoading) return <p className="muted">Loading holdings…</p>;
   if (error || !data) return <p className="form-error">{(error as Error)?.message ?? "Couldn't load holdings"}</p>;
 
-  const { totals: t, holdings } = data;
-  if (holdings.length === 0)
-    return <div className="empty">No holdings yet. Record a buy on the Transactions tab and it will show up here.</div>;
-
+  const { totals: t, holdings, cash } = data;
+  const shown = data.currency;
+  const hasAnything = holdings.length > 0 || cash.length > 0;
   const updated = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
 
   return (
     <>
-      <div className="stats">
-        <div className="card stat">
-          <div className="label">Total value</div>
-          <div className="value">{usd(t.market_value)}</div>
-          <div className="sub">Cost basis {usd(t.cost_basis)}</div>
-        </div>
-        <div className="card stat">
-          <div className="label">Day change</div>
-          <div className={`value ${tone(t.day_change)}`}>{signedUsd(t.day_change)}</div>
-          <div className={`sub ${tone(t.day_change_pct)}`}>{signedPct(t.day_change_pct)}</div>
-        </div>
-        <div className="card stat">
-          <div className="label">Unrealized profit and loss</div>
-          <div className={`value ${tone(t.unrealized)}`}>{signedUsd(t.unrealized)}</div>
-          <div className={`sub ${tone(t.unrealized_pct)}`}>{signedPct(t.unrealized_pct)} on cost</div>
-        </div>
-        <div className="card stat">
-          <div className="label">Total return</div>
-          <div className={`value ${tone(t.total_return)}`}>{signedUsd(t.total_return)}</div>
-          <div className="sub">
-            Includes {signedUsd(t.realized)} realized and {usd(t.dividends)} dividends
+      {hasAnything && (
+        <div className="stats">
+          <div className="card stat">
+            <div className="label-row">
+              <span className="label">Total value</span>
+              <select className="ccy" value={currency} onChange={(e) => pickCurrency(e.target.value)} aria-label="Display currency">
+                {CURRENCIES.map((c) => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="value">{money(t.total_value, shown)}</div>
+            <div className="sub">Stocks {money(t.market_value, shown)}, cash {money(t.cash, shown)}</div>
+          </div>
+          <div className="card stat">
+            <div className="label">Day change</div>
+            <div className={`value ${tone(t.day_change)}`}>{signedMoney(t.day_change, shown)}</div>
+            <div className={`sub ${tone(t.day_change_pct)}`}>{signedPct(t.day_change_pct)} on your stocks</div>
+          </div>
+          <div className="card stat">
+            <div className="label">Unrealized profit and loss</div>
+            <div className={`value ${tone(t.unrealized)}`}>{signedMoney(t.unrealized, shown)}</div>
+            <div className={`sub ${tone(t.unrealized_pct)}`}>{signedPct(t.unrealized_pct)} on cost</div>
+          </div>
+          <div className="card stat">
+            <div className="label">Total return</div>
+            <div className={`value ${tone(t.total_return)}`}>{signedMoney(t.total_return, shown)}</div>
+            <div className="sub">
+              Includes {signedMoney(t.realized, shown)} realized and {money(t.dividends, shown)} dividends
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {data.warnings.length > 0 && (
         <div className="notice">
@@ -72,50 +205,57 @@ function Holdings() {
         </div>
       )}
 
-      <div className="card table-wrap holdings">
-        <table className="ledger">
-          <thead>
-            <tr>
-              <th>Ticker</th>
-              <th className="num">Shares</th>
-              <th className="num">Avg cost</th>
-              <th className="num">Price</th>
-              <th className="num">Day change</th>
-              <th className="num">Market value</th>
-              <th>Weight</th>
-              <th className="num">Unrealized P&amp;L</th>
-            </tr>
-          </thead>
-          <tbody>
-            {holdings.map((h) => (
-              <tr key={h.ticker}>
-                <td><b>{h.ticker}</b></td>
-                <td className="num">{shares(h.shares)}</td>
-                <td className="num">{usd(h.avg_cost, 4)}</td>
-                <td className="num">{h.price === null ? "–" : usd(h.price, 4)}</td>
-                <td className={`num ${tone(h.day_change)}`}>
-                  {h.day_change === null ? "–" : <>{signedUsd(h.day_change)}<div className="subline">{signedPct(h.day_change_pct)}</div></>}
-                </td>
-                <td className="num">{h.market_value === null ? "–" : usd(h.market_value)}</td>
-                <td>
-                  {h.weight === null ? "–" : (
-                    <span className="weight">
-                      <span className="wbar"><span style={{ width: `${Math.min(100, h.weight)}%` }} /></span>
-                      {h.weight.toFixed(1)}%
-                    </span>
-                  )}
-                </td>
-                <td className={`num ${tone(h.unrealized)}`}>
-                  {h.unrealized === null ? "–" : <>{signedUsd(h.unrealized)}<div className="subline">{signedPct(h.unrealized_pct)}</div></>}
-                </td>
+      {holdings.length === 0 ? (
+        <div className="empty">No stock holdings yet. Record a buy on the Transactions tab and it will show up here.</div>
+      ) : (
+        <div className="card table-wrap holdings">
+          <table className="ledger">
+            <thead>
+              <tr>
+                <th>Ticker</th>
+                <th className="num">Shares</th>
+                <th className="num">Avg cost</th>
+                <th className="num">Price</th>
+                <th className="num">Day change</th>
+                <th className="num">Market value</th>
+                <th>Weight</th>
+                <th className="num">Unrealized P&amp;L</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {holdings.map((h) => (
+                <tr key={h.ticker}>
+                  <td><b>{h.ticker}</b></td>
+                  <td className="num">{shares(h.shares)}</td>
+                  <td className="num">{money(h.avg_cost, shown, 4)}</td>
+                  <td className="num">{h.price === null ? "–" : money(h.price, shown, 4)}</td>
+                  <td className={`num ${tone(h.day_change)}`}>
+                    {h.day_change === null ? "–" : <>{signedMoney(h.day_change, shown)}<div className="subline">{signedPct(h.day_change_pct)}</div></>}
+                  </td>
+                  <td className="num">{h.market_value === null ? "–" : money(h.market_value, shown)}</td>
+                  <td>
+                    {h.weight === null ? "–" : (
+                      <span className="weight">
+                        <span className="wbar"><span style={{ width: `${Math.min(100, h.weight)}%` }} /></span>
+                        {h.weight.toFixed(1)}%
+                      </span>
+                    )}
+                  </td>
+                  <td className={`num ${tone(h.unrealized)}`}>
+                    {h.unrealized === null ? "–" : <>{signedMoney(h.unrealized, shown)}<div className="subline">{signedPct(h.unrealized_pct)}</div></>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <CashSection cash={cash} shown={shown} total={t.cash} />
 
       <p className="foot">
-        {data.as_of ? `Prices from the ${isoToDmy(data.as_of)} session. ` : ""}
+        {data.as_of ? `Stock prices from the ${isoToDmy(data.as_of)} session. ` : ""}
+        {data.fx_rate ? `Converted at 1 USD = ${data.fx_rate.toFixed(4)} ${shown}; gains don't include currency moves since you bought. ` : ""}
         Refreshes every minute{updated ? `, last at ${updated}` : ""}.{" "}
         <button className="linkbtn inline" onClick={() => refetch()} disabled={isFetching}>
           {isFetching ? "Refreshing…" : "Refresh now"}
@@ -214,7 +354,7 @@ function Transactions() {
             <input inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="10" />
           </label>
           <label className="field">
-            {type === "dividend" ? "Dividend per share" : "Price per share"}
+            {type === "dividend" ? "Dividend per share (USD)" : "Price per share (USD)"}
             <input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="185.20" />
           </label>
           <label className="field">
@@ -259,9 +399,9 @@ function Transactions() {
                   <td><span className={`tag ${t.type}`}>{t.type}</span></td>
                   <td><b>{t.ticker}</b></td>
                   <td className="num">{shares(t.quantity)}</td>
-                  <td className="num">{usd(Number(t.price), 4)}</td>
-                  <td className="num">{Number(t.fees) ? usd(Number(t.fees)) : "–"}</td>
-                  <td className="num">{usd(txTotal(t))}</td>
+                  <td className="num">{money(Number(t.price), "USD", 4)}</td>
+                  <td className="num">{Number(t.fees) ? money(Number(t.fees), "USD") : "–"}</td>
+                  <td className="num">{money(txTotal(t), "USD")}</td>
                   <td className="note">{t.note}</td>
                   <td><button className="del" onClick={() => confirmDelete(t)}>Delete</button></td>
                 </tr>

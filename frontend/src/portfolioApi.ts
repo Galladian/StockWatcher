@@ -83,9 +83,25 @@ export interface Holding {
   weight: N;
 }
 
+export const CURRENCIES = ["NZD", "USD", "AUD", "GBP", "EUR", "CAD", "JPY"]; // NZD first
+
+export interface CashAccount {
+  id: number;
+  label: string;
+  currency: string;
+  amount: number; // in its own currency
+  value: N;       // converted to the display currency
+  weight: N;
+}
+
 export interface Summary {
   as_of: string | null;
+  currency: string;   // the currency the figures are actually in
+  fx_rate: N;         // units of `currency` per 1 USD (null when showing USD)
+  cash: CashAccount[];
   totals: {
+    cash: number;
+    total_value: number;
     market_value: number;
     cost_basis: number;
     day_change: number;
@@ -100,4 +116,19 @@ export interface Summary {
   warnings: string[];
 }
 
-export const fetchSummary = () => request<Summary>("/api/portfolio/summary");
+export const fetchSummary = (currency: string) =>
+  request<Summary>(`/api/portfolio/summary?currency=${encodeURIComponent(currency)}`);
+
+export interface CashInput {
+  label: string;
+  currency: string;
+  amount: string;
+}
+
+export const addCash = (c: CashInput) =>
+  request<{ id: number }>("/api/portfolio/cash", { method: "POST", body: JSON.stringify(c) });
+
+export const updateCash = (id: number, c: CashInput) =>
+  request<{ id: number }>(`/api/portfolio/cash/${id}`, { method: "PUT", body: JSON.stringify(c) });
+
+export const deleteCash = (id: number) => request<void>(`/api/portfolio/cash/${id}`, { method: "DELETE" });

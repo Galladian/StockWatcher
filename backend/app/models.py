@@ -34,3 +34,15 @@ class Transaction(Base):
     fees: Mapped[Decimal] = mapped_column(DecimalText, default=Decimal("0"))
     note: Mapped[str | None] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+
+class CashBalance(Base):
+    """A cash account (brokerage cash, savings, ...). Added to the portfolio's total value."""
+    __tablename__ = "cash_balances"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    label: Mapped[str] = mapped_column(String(60))
+    currency: Mapped[str] = mapped_column(String(3))
+    amount: Mapped[Decimal] = mapped_column(DecimalText)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
