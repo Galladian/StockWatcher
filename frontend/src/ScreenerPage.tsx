@@ -35,8 +35,8 @@ function VerdictBanner({ title, v }: { title: string; v: ScreenVerdict }) {
 }
 
 export default function ScreenerPage() {
-  const [input, setInput] = useState("");
-  const [ticker, setTicker] = useState("");
+  const [input, setInput] = useState("META");
+  const [ticker, setTicker] = useState("META"); // screened as soon as the page opens
 
   const { data, error, isFetching } = useQuery({
     queryKey: ["screener", ticker],

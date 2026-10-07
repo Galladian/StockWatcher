@@ -15,8 +15,8 @@ const TIMEFRAMES: { id: Timeframe; label: string }[] = [
 ];
 
 export default function ChartPage() {
-  const [input, setInput] = useState("AAPL");
-  const [ticker, setTicker] = useState("AAPL");
+  const [input, setInput] = useState("SPY");
+  const [ticker, setTicker] = useState("SPY");
   const [timeframe, setTimeframe] = useState<Timeframe>("Y");
   const [chartType, setChartType] = useState<ChartType>("candles");
   const [panelOpen, setPanelOpen] = useState(() => {

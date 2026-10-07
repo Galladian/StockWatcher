@@ -169,3 +169,6 @@ select.ccy { padding: 2px 6px; font-size: 12px; border-radius: 5px; }
 .more.has-note { color: var(--accent); border-color: rgba(77, 163, 255, 0.5); }
 .more[aria-expanded="true"] { background: var(--line); }
 .ledger tr.note-row td { white-space: normal; background: rgba(255, 255, 255, 0.025); font-size: 13px; padding-top: 6px; padding-bottom: 10px; }
+
+.form-actions button { white-space: nowrap; }
+.card.editing .form-actions { grid-column: span 2; }
