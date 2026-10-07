@@ -1,4 +1,4 @@
-export type Timeframe = "D" | "W" | "M" | "Q" | "Y" | "5Y";
+export type Timeframe = "D" | "W" | "M" | "Q" | "YTD" | "Y" | "5Y";
 export type ChartType = "candles" | "line";
 
 export interface ChartData {
@@ -10,6 +10,7 @@ export interface ChartData {
   // `time` is UTC seconds (intraday values are exchange wall-clock time)
   candles: { time: number; open: number; high: number; low: number; close: number }[];
   volume: { time: number; value: number; up: boolean }[];
+  ema: { label: string; data: { time: number; value: number }[] };
   rsi: { time: number; value: number }[];
   macd: { time: number; macd: number; signal: number; hist: number }[];
 }

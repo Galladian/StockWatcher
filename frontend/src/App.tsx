@@ -8,6 +8,7 @@ const TIMEFRAMES: { id: Timeframe; label: string }[] = [
   { id: "W", label: "Weekly" },
   { id: "M", label: "Monthly" },
   { id: "Q", label: "Quarterly" },
+  { id: "YTD", label: "YTD" },
   { id: "Y", label: "Annual" },
   { id: "5Y", label: "5 Year" },
 ];

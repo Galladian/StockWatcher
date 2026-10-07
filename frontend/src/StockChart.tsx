@@ -24,6 +24,7 @@ const C = {
   price: "#4da3ff",
   macd: "#4da3ff",
   signal: "#f6ad55",
+  ema: "#ffd54f",
 };
 
 // Relative pane heights, top to bottom: RSI, price, volume, MACD.
@@ -34,6 +35,7 @@ interface Series {
   rsi: ISeriesApi<"Line">;
   candles: ISeriesApi<"Candlestick">;
   line: ISeriesApi<"Line">;
+  ema: ISeriesApi<"Line">;
   volume: ISeriesApi<"Histogram">;
   hist: ISeriesApi<"Histogram">;
   macd: ISeriesApi<"Line">;
@@ -72,6 +74,11 @@ export default function StockChart({ data, chartType }: { data: ChartData; chart
       1
     );
     const line = chart.addSeries(LineSeries, { color: C.price, lineWidth: 2, visible: false }, 1);
+    const ema = chart.addSeries(
+      LineSeries,
+      { color: C.ema, lineWidth: 2, priceLineVisible: false, crosshairMarkerVisible: false, title: "EMA 21" },
+      1
+    );
     const volume = chart.addSeries(
       HistogramSeries,
       { priceFormat: { type: "volume" }, priceLineVisible: false, lastValueVisible: false },
@@ -84,7 +91,7 @@ export default function StockChart({ data, chartType }: { data: ChartData; chart
     chart.panes().forEach((pane, i) => pane.setStretchFactor(STRETCH[i]));
 
     chartRef.current = chart;
-    seriesRef.current = { rsi, candles, line, volume, hist, macd, signal };
+    seriesRef.current = { rsi, candles, line, ema, volume, hist, macd, signal };
 
     return () => {
       chart.remove();
@@ -103,6 +110,8 @@ export default function StockChart({ data, chartType }: { data: ChartData; chart
 
     s.candles.setData(data.candles.map((d) => ({ ...d, time: d.time as Time })));
     s.line.setData(data.candles.map((d) => ({ time: d.time as Time, value: d.close })));
+    s.ema.setData(data.ema.data.map((d) => ({ time: d.time as Time, value: d.value })));
+    s.ema.applyOptions({ title: data.ema.label });
     s.volume.setData(
       data.volume.map((d) => ({ time: d.time as Time, value: d.value, color: d.up ? C.upFaint : C.downFaint }))
     );
