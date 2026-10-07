@@ -12,10 +12,10 @@ input { background: var(--bg); border: 1px solid var(--line); color: var(--text)
 input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 button { background: var(--bg); color: var(--text); border: 1px solid var(--line); padding: 8px 12px; border-radius: 6px; font: inherit; cursor: pointer; }
 button:hover { border-color: var(--muted); }
-.controls { display: flex; flex-wrap: wrap; gap: 12px 20px; margin-left: auto; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-left: auto; }
 .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
 .tabs button.active { background: var(--accent); border-color: var(--accent); color: #07121f; font-weight: 600; }
-.quote { display: flex; align-items: baseline; gap: 12px; font-variant-numeric: tabular-nums; }
+.quote { display: flex; align-items: baseline; gap: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .sym { font-size: 20px; font-weight: 600; }
 .px { font-size: 20px; }
 .pos { color: var(--pos); } .neg { color: var(--neg); } .muted { color: var(--muted); font-size: 13px; }
@@ -49,3 +49,7 @@ button:hover { border-color: var(--muted); }
 .range-track { position: relative; height: 4px; margin: 8px 0 6px; border-radius: 2px; background: var(--line); }
 .range-dot { position: absolute; top: 50%; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); transform: translate(-50%, -50%); }
 @media (max-width: 760px) { .panel { width: 260px; } }
+
+.tabs button { padding: 5px 9px; font-size: 13px; }
+.caption { display: flex; gap: 14px; }
+.caption .loading { color: var(--accent); }

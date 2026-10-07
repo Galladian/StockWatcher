@@ -67,7 +67,6 @@ export default function App() {
               <span className="muted"> {data?.quote.change_label}</span>
             </span>
           )}
-          {isFetching && <span className="muted">Loading…</span>}
         </div>
 
         <div className="controls">
@@ -94,7 +93,12 @@ export default function App() {
       </header>
 
       {error && <div className="error">{(error as Error).message}. Check the ticker and try again.</div>}
-      {data && <div className="caption">{data.label}</div>}
+      {data && (
+        <div className="caption">
+          <span>{data.label}</span>
+          {isFetching && <span className="loading">Loading…</span>}
+        </div>
+      )}
       <main className="main">
         <div className="chart-area">{data && <StockChart data={data} chartType={chartType} />}</div>
         <div className="side">
