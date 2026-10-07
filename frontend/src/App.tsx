@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchChart, type ChartType, type Timeframe } from "./api";
 import StockChart from "./StockChart";
+import MetricsPanel from "./MetricsPanel";
 
 const TIMEFRAMES: { id: Timeframe; label: string }[] = [
   { id: "D", label: "Daily" },
@@ -18,6 +19,15 @@ export default function App() {
   const [ticker, setTicker] = useState("AAPL");
   const [timeframe, setTimeframe] = useState<Timeframe>("Y");
   const [chartType, setChartType] = useState<ChartType>("candles");
+  const [panelOpen, setPanelOpen] = useState(() => {
+    try { return localStorage.getItem("metricsOpen") === "1"; } catch { return false; }
+  });
+  const togglePanel = () =>
+    setPanelOpen((open) => {
+      const next = !open;
+      try { localStorage.setItem("metricsOpen", next ? "1" : "0"); } catch { /* ignore */ }
+      return next;
+    });
 
   const { data, error, isFetching } = useQuery({
     queryKey: ["chart", ticker, timeframe],
@@ -84,7 +94,16 @@ export default function App() {
 
       {error && <div className="error">{(error as Error).message}. Check the ticker and try again.</div>}
       {data && <div className="caption">{data.label}</div>}
-      <main className="main">{data && <StockChart data={data} chartType={chartType} />}</main>
+      <main className="main">
+        <div className="chart-area">{data && <StockChart data={data} chartType={chartType} />}</div>
+        <div className="side">
+          <button className="side-tab" onClick={togglePanel} aria-expanded={panelOpen} title="Toggle metrics panel">
+            <span>{panelOpen ? "›" : "‹"}</span>
+            <span className="side-label">Metrics</span>
+          </button>
+          {panelOpen && <MetricsPanel ticker={ticker} />}
+        </div>
+      </main>
     </div>
   );
 }

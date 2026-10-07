@@ -23,3 +23,32 @@ export async function fetchChart(ticker: string, timeframe: Timeframe): Promise<
   }
   return res.json();
 }
+
+type N = number | null;
+
+export interface Metrics {
+  ticker: string;
+  name: string | null;
+  sector: string | null;
+  industry: string | null;
+  exchange: string | null;
+  price: N;
+  market_cap: N; enterprise_value: N; pe_trailing: N; pe_forward: N; peg: N;
+  price_to_sales: N; price_to_book: N; ev_to_ebitda: N; eps_trailing: N; eps_forward: N;
+  dividend_rate: N; dividend_yield: N; payout_ratio: N; ex_dividend_date: string | null;
+  gross_margin: N; operating_margin: N; profit_margin: N; roe: N; roa: N;
+  revenue: N; revenue_growth: N; earnings_growth: N; free_cash_flow: N;
+  total_cash: N; total_debt: N; debt_to_equity: N; current_ratio: N;
+  beta: N; week52_high: N; week52_low: N; avg_volume: N; shares_outstanding: N; short_percent_float: N;
+  recommendation: string | null; analyst_count: N;
+  target_mean: N; target_high: N; target_low: N; target_upside: N;
+}
+
+export async function fetchMetrics(ticker: string): Promise<Metrics> {
+  const res = await fetch(`/api/metrics/${encodeURIComponent(ticker)}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail ?? `Request failed (${res.status})`);
+  }
+  return res.json();
+}

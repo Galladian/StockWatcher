@@ -41,3 +41,20 @@ def get_daily(ticker: str) -> pd.DataFrame:
 def get_intraday(ticker: str, interval: str, period: str) -> pd.DataFrame:
     """Recent intraday bars (regular trading hours), e.g. interval='5m', period='5d'."""
     return _fetch(ticker, interval, period, ttl=60)
+
+
+_INFO_CACHE: dict[str, tuple[float, dict]] = {}
+
+
+def get_info(ticker: str) -> dict:
+    """Company profile + fundamentals (raw provider fields). Cached for 15 minutes."""
+    ticker = ticker.upper().strip()
+    now = time.time()
+    hit = _INFO_CACHE.get(ticker)
+    if hit and now - hit[0] < 900:
+        return hit[1]
+    info = yf.Ticker(ticker).info or {}
+    if not info:
+        raise TickerNotFound(ticker)
+    _INFO_CACHE[ticker] = (now, info)
+    return info
