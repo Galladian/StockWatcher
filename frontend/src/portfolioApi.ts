@@ -65,3 +65,39 @@ export const addTransaction = (tx: NewTransaction) =>
 
 export const deleteTransaction = (id: number) =>
   request<void>(`/api/portfolio/transactions/${id}`, { method: "DELETE" });
+
+type N = number | null;
+
+export interface Holding {
+  ticker: string;
+  shares: number;
+  avg_cost: number;
+  cost_basis: number;
+  price: N;
+  prev_close: N;
+  market_value: N;
+  day_change: N;
+  day_change_pct: N;
+  unrealized: N;
+  unrealized_pct: N;
+  weight: N;
+}
+
+export interface Summary {
+  as_of: string | null;
+  totals: {
+    market_value: number;
+    cost_basis: number;
+    day_change: number;
+    day_change_pct: N;
+    unrealized: number;
+    unrealized_pct: N;
+    realized: number;
+    dividends: number;
+    total_return: number;
+  };
+  holdings: Holding[];
+  warnings: string[];
+}
+
+export const fetchSummary = () => request<Summary>("/api/portfolio/summary");

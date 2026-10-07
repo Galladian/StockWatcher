@@ -58,3 +58,43 @@ def get_info(ticker: str) -> dict:
         raise TickerNotFound(ticker)
     _INFO_CACHE[ticker] = (now, info)
     return info
+
+
+# ---- quotes (latest price + previous close) for the portfolio ----
+from concurrent.futures import ThreadPoolExecutor  # noqa: E402
+from decimal import Decimal  # noqa: E402
+
+_QUOTE_CACHE: dict[str, tuple[float, dict | None]] = {}
+
+
+def get_quote(ticker: str) -> dict | None:
+    """Latest price, previous close and the date of the latest session. Cached for 60s.
+    Returns None if the provider has nothing for this ticker."""
+    ticker = ticker.upper().strip()
+    now = time.time()
+    hit = _QUOTE_CACHE.get(ticker)
+    if hit and now - hit[0] < 60:
+        return hit[1]
+    quote = None
+    try:
+        raw = yf.Ticker(ticker).history(period="5d", interval="1d", auto_adjust=False)
+        closes = raw["Close"].dropna() if raw is not None and not raw.empty else None
+        if closes is not None and len(closes):
+            last = float(closes.iloc[-1])
+            prev = float(closes.iloc[-2]) if len(closes) > 1 else last
+            quote = {
+                "price": Decimal(str(last)),
+                "prev_close": Decimal(str(prev)),
+                "session_date": closes.index[-1].date(),
+            }
+    except Exception:
+        quote = None
+    _QUOTE_CACHE[ticker] = (now, quote)
+    return quote
+
+
+def get_quotes(tickers: list[str]) -> dict[str, dict | None]:
+    if not tickers:
+        return {}
+    with ThreadPoolExecutor(max_workers=min(8, len(tickers))) as pool:
+        return dict(zip(tickers, pool.map(get_quote, tickers)))

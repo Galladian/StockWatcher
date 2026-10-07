@@ -8,9 +8,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from . import data
 from .auth import current_user
 from .db import get_db
 from .models import Transaction, User
+from .positions import compute_portfolio
 
 router = APIRouter(prefix="/api/portfolio", tags=["portfolio"])
 
@@ -85,3 +87,11 @@ def delete_transaction(tx_id: int, user: User = Depends(current_user), db: Sessi
         raise HTTPException(404, "Transaction not found")
     db.delete(tx)
     db.commit()
+
+
+@router.get("/summary")
+def summary(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Current holdings, value, day change and P&L, worked out from the ledger."""
+    txs = db.scalars(select(Transaction).where(Transaction.user_id == user.id)).all()
+    quotes = data.get_quotes(sorted({t.ticker for t in txs}))
+    return compute_portfolio(txs, quotes)
