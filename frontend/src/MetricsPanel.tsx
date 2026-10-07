@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchMetrics, type Metrics } from "./api";
+import { isoToDmy } from "./dates";
 
 type Fmt = "money" | "price" | "ratio" | "mult" | "pct" | "signedPct" | "num" | "date" | "text";
 interface Row {
@@ -91,7 +92,7 @@ const compact = new Intl.NumberFormat("en", { notation: "compact", maximumFracti
 
 function format(v: unknown, f: Fmt): string {
   if (v === null || v === undefined || v === "") return "–";
-  if (typeof v === "string") return v;
+  if (typeof v === "string") return f === "date" ? isoToDmy(v) : v;
   if (typeof v !== "number") return "–";
   switch (f) {
     case "money": return `${v < 0 ? "-" : ""}$${compact.format(Math.abs(v))}`;

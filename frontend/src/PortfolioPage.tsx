@@ -1,6 +1,7 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import LoginForm from "./LoginForm";
+import { isoToDmy, localTodayIso, maskDmy, parseDmy } from "./dates";
 import {
   addTransaction, deleteTransaction, fetchMe, fetchSummary, listTransactions,
   type Transaction, type TxType,
@@ -13,12 +14,6 @@ const signedUsd = (v: number) => `${v >= 0 ? "+" : "-"}${usd(Math.abs(v))}`;
 const signedPct = (v: number | null) => (v === null ? "–" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`);
 const tone = (v: number | null) => (v === null ? "" : v >= 0 ? "pos" : "neg");
 const shares = (v: number | string) => Number(v).toLocaleString("en-US", { maximumFractionDigits: 6 });
-
-const localToday = () => {
-  const d = new Date();
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-};
 
 function txTotal(t: Transaction): number {
   const gross = Number(t.quantity) * Number(t.price);
@@ -120,7 +115,7 @@ function Holdings() {
       </div>
 
       <p className="foot">
-        {data.as_of ? `Prices from the ${data.as_of} session. ` : ""}
+        {data.as_of ? `Prices from the ${isoToDmy(data.as_of)} session. ` : ""}
         Refreshes every minute{updated ? `, last at ${updated}` : ""}.{" "}
         <button className="linkbtn inline" onClick={() => refetch()} disabled={isFetching}>
           {isFetching ? "Refreshing…" : "Refresh now"}
@@ -137,7 +132,9 @@ function Transactions() {
 
   const [type, setType] = useState<TxType>("buy");
   const [ticker, setTicker] = useState("");
-  const [date, setDate] = useState(localToday());
+  const [dateText, setDateText] = useState(isoToDmy(localTodayIso()));
+  const date = parseDmy(dateText); // ISO string, or null while it isn't a valid date
+  const pickerRef = useRef<HTMLInputElement>(null);
   const [quantity, setQuantity] = useState("");
   const [price, setPrice] = useState("");
   const [fees, setFees] = useState("");
@@ -149,7 +146,7 @@ function Transactions() {
   };
 
   const add = useMutation({
-    mutationFn: () => addTransaction({ ticker, type, trade_date: date, quantity, price, fees: fees || "0", note }),
+    mutationFn: () => addTransaction({ ticker, type, trade_date: date ?? "", quantity, price, fees: fees || "0", note }),
     onSuccess: () => {
       changed();
       setTicker(""); setQuantity(""); setPrice(""); setFees(""); setNote("");
@@ -162,7 +159,7 @@ function Transactions() {
     add.mutate();
   };
   const confirmDelete = (t: Transaction) => {
-    if (window.confirm(`Delete this ${t.type} of ${t.ticker} on ${t.trade_date}?`)) remove.mutate(t.id);
+    if (window.confirm(`Delete this ${t.type} of ${t.ticker} on ${isoToDmy(t.trade_date)}?`)) remove.mutate(t.id);
   };
 
   return (
@@ -181,10 +178,37 @@ function Transactions() {
             Ticker
             <input className="upper" value={ticker} onChange={(e) => setTicker(e.target.value)} placeholder="AAPL" spellCheck={false} />
           </label>
-          <label className="field">
-            Date
-            <input type="date" value={date} max={localToday()} onChange={(e) => setDate(e.target.value)} />
-          </label>
+          <div className="field">
+            <label htmlFor="trade-date">Date</label>
+            <div className="date-row">
+              <input
+                id="trade-date"
+                inputMode="numeric"
+                placeholder="DD/MM/YYYY"
+                value={dateText}
+                onChange={(e) => setDateText(maskDmy(e.target.value))}
+                aria-invalid={dateText.length === 10 && !date}
+              />
+              <button
+                type="button"
+                className="cal"
+                aria-label="Pick a date from a calendar"
+                onClick={() => { try { pickerRef.current?.showPicker(); } catch { /* unsupported browser */ } }}
+              >
+                &#128197;
+              </button>
+              <input
+                ref={pickerRef}
+                className="hidden-date"
+                type="date"
+                tabIndex={-1}
+                aria-hidden="true"
+                max={localTodayIso()}
+                value={date ?? ""}
+                onChange={(e) => e.target.value && setDateText(isoToDmy(e.target.value))}
+              />
+            </div>
+          </div>
           <label className="field">
             Shares
             <input inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="10" />
@@ -201,10 +225,16 @@ function Transactions() {
             Note (optional)
             <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} />
           </label>
-          <button className="primary" type="submit" disabled={add.isPending || !ticker || !quantity || !price}>
+          <button className="primary" type="submit" disabled={add.isPending || !ticker || !quantity || !price || !date}>
             {add.isPending ? "Adding…" : "Add trade"}
           </button>
         </div>
+        {dateText.length === 10 && !date && (
+          <p className="form-error">Enter a real date as DD/MM/YYYY that isn't in the future.</p>
+        )}
+        <p className="hint">
+          Already own the shares? Enter the date you bought them, or your best estimate. Day change counts shares from the date you enter.
+        </p>
         {add.error && <p className="form-error">{(add.error as Error).message}</p>}
       </form>
 
@@ -225,7 +255,7 @@ function Transactions() {
             <tbody>
               {txs.data.map((t) => (
                 <tr key={t.id}>
-                  <td>{t.trade_date}</td>
+                  <td>{isoToDmy(t.trade_date)}</td>
                   <td><span className={`tag ${t.type}`}>{t.type}</span></td>
                   <td><b>{t.ticker}</b></td>
                   <td className="num">{shares(t.quantity)}</td>

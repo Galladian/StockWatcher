@@ -67,6 +67,14 @@ from decimal import Decimal  # noqa: E402
 _QUOTE_CACHE: dict[str, tuple[float, dict | None]] = {}
 
 
+def _dec(v) -> Decimal | None:
+    try:
+        f = float(v)
+        return Decimal(str(f)) if f == f else None
+    except (TypeError, ValueError):
+        return None
+
+
 def get_quote(ticker: str) -> dict | None:
     """Latest price, previous close and the date of the latest session. Cached for 60s.
     Returns None if the provider has nothing for this ticker."""
@@ -82,10 +90,13 @@ def get_quote(ticker: str) -> dict | None:
         if closes is not None and len(closes):
             last = float(closes.iloc[-1])
             prev = float(closes.iloc[-2]) if len(closes) > 1 else last
+            row = raw.loc[closes.index[-1]]
             quote = {
                 "price": Decimal(str(last)),
                 "prev_close": Decimal(str(prev)),
                 "session_date": closes.index[-1].date(),
+                "low": _dec(row.get("Low")),    # the latest session's range, used to sanity-check
+                "high": _dec(row.get("High")),  # trades dated on or after that session
             }
     except Exception:
         quote = None
