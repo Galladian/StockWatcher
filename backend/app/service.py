@@ -26,6 +26,10 @@ TIMEFRAMES = {
             "ema": "monthly", "label": "Last 5 years, weekly bars"},
 }
 
+CHANGE_LABELS = {
+    "D": "today", "W": "past 5 sessions", "M": "past month", "Q": "past 3 months",
+    "YTD": "year to date", "Y": "past year", "5Y": "past 5 years",
+}
 EMA_LABELS = {"hourly": "EMA 21h", "daily": "EMA 21d", "monthly": "EMA 21m"}
 EPOCH = pd.Timestamp("1970-01-01")
 
@@ -98,18 +102,19 @@ def build_chart(ticker: str, timeframe: str) -> dict:
     macd_v = ind_macd.loc[idx]
     ema_v = ind_ema.loc[idx].dropna()
 
-    # Quote: latest price vs the previous trading day's close
+    # Quote: latest price vs the close just before the selected window began
+    # (previous close for Daily, last year's close for YTD, a year ago for Annual, ...)
     price = float(df["close"].iloc[-1])
-    last_day = df.index[-1].normalize()
-    prev = daily.loc[daily.index < last_day, "close"]
-    change_pct = float((price / prev.iloc[-1] - 1) * 100) if len(prev) else None
+    before = df.loc[df.index < idx[0], "close"]
+    base = float(before.iloc[-1]) if len(before) else float(view["open"].iloc[0])
+    change_pct = (price / base - 1) * 100
 
     return {
         "ticker": ticker.upper(),
         "timeframe": timeframe,
         "label": cfg["label"],
         "intraday": cfg["source"] == "intraday",
-        "quote": {"price": price, "change_pct": change_pct},
+        "quote": {"price": price, "change_pct": change_pct, "change_label": CHANGE_LABELS[timeframe]},
         "candles": candles,
         "volume": volume,
         "ema": {

@@ -6,7 +6,7 @@ export interface ChartData {
   timeframe: Timeframe;
   label: string;
   intraday: boolean;
-  quote: { price: number; change_pct: number | null };
+  quote: { price: number; change_pct: number | null; change_label: string };
   // `time` is UTC seconds (intraday values are exchange wall-clock time)
   candles: { time: number; open: number; high: number; low: number; close: number }[];
   volume: { time: number; value: number; up: boolean }[];

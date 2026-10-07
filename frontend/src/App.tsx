@@ -61,9 +61,10 @@ export default function App() {
           <span className="sym">{data?.ticker ?? ticker}</span>
           {data && <span className="px">{data.quote.price.toFixed(2)}</span>}
           {change !== null && (
-            <span className={change >= 0 ? "pos" : "neg"} title="Change vs previous close">
+            <span className={change >= 0 ? "pos" : "neg"}>
               {change >= 0 ? "+" : ""}
               {change.toFixed(2)}%
+              <span className="muted"> {data?.quote.change_label}</span>
             </span>
           )}
           {isFetching && <span className="muted">Loading…</span>}
