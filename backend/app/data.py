@@ -120,3 +120,39 @@ def get_fx_rates(currencies) -> dict[str, Decimal | None]:
         q = quotes.get(f"USD{c}=X")
         out[c] = q["price"] if q and q["price"] > 0 else None
     return out
+
+
+_GROWTH_CACHE: dict[str, tuple[float, dict]] = {}
+
+
+def get_growth(ticker: str) -> dict:
+    """Analyst growth estimates (fractions, e.g. 0.15 = 15%). Never raises: missing items are None.
+    rev_next / eps_next = next fiscal year, rev_curr / eps_curr = the current fiscal year."""
+    ticker = ticker.upper().strip()
+    now = time.time()
+    hit = _GROWTH_CACHE.get(ticker)
+    if hit and now - hit[0] < 900:
+        return hit[1]
+
+    out = {"rev_next": None, "rev_curr": None, "eps_next": None, "eps_curr": None}
+
+    def pick(df, row):
+        try:
+            v = float(df.loc[row, "growth"])
+            return v if v == v else None
+        except Exception:
+            return None
+
+    t = yf.Ticker(ticker)
+    try:
+        rev = t.revenue_estimate
+        out["rev_next"], out["rev_curr"] = pick(rev, "+1y"), pick(rev, "0y")
+    except Exception:
+        pass
+    try:
+        eps = t.earnings_estimate
+        out["eps_next"], out["eps_curr"] = pick(eps, "+1y"), pick(eps, "0y")
+    except Exception:
+        pass
+    _GROWTH_CACHE[ticker] = (now, out)
+    return out

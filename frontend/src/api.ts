@@ -52,3 +52,41 @@ export async function fetchMetrics(ticker: string): Promise<Metrics> {
   }
   return res.json();
 }
+
+export type CheckStatus = "good" | "ok" | "bad" | "na";
+
+export interface ScreenCheck {
+  id: string;
+  label: string;
+  status: CheckStatus;
+  value: string;
+  detail: string;
+  rule: string;
+}
+
+export interface ScreenVerdict {
+  verdict: string;
+  tone: CheckStatus;
+  summary: string;
+}
+
+export interface Screen {
+  ticker: string;
+  name: string | null;
+  sector: string | null;
+  industry: string | null;
+  price: number | null;
+  market_cap: number | null;
+  valuation: (ScreenVerdict & { groups: { title: string; checks: ScreenCheck[] }[] }) | null;
+  short_term: (ScreenVerdict & { checks: ScreenCheck[]; extras: ScreenCheck[] }) | null;
+  warnings: string[];
+}
+
+export async function fetchScreen(ticker: string): Promise<Screen> {
+  const res = await fetch(`/api/screener/${encodeURIComponent(ticker)}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail ?? `Request failed (${res.status})`);
+  }
+  return res.json();
+}

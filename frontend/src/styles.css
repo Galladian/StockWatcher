@@ -132,3 +132,30 @@ select.ccy { padding: 2px 6px; font-size: 12px; border-radius: 5px; }
 .cash .card + .card { margin-top: 12px; }
 .ledger td input, .ledger td select { padding: 4px 6px; font-size: 13px; width: 100%; min-width: 80px; }
 .ledger td.actions { text-align: right; white-space: nowrap; }
+
+/* ---- screener ---- */
+.wrap.wide { max-width: 1320px; }
+.screen-search { margin: 0 0 18px; }
+.screen-search input { width: 220px; }
+.screen-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 20px; margin-bottom: 14px; }
+.screen-name { margin-left: 12px; color: var(--muted); font-size: 15px; }
+.screen-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 960px) { .screen-grid { grid-template-columns: minmax(0, 1fr); } }
+.verdict { border: 1px solid var(--line); border-left: 4px solid var(--muted); border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; background: var(--panel); }
+.verdict.good { border-left-color: var(--pos); } .verdict.ok { border-left-color: #e0b341; } .verdict.bad { border-left-color: var(--neg); }
+.verdict-kicker { font-size: 12px; color: var(--muted); }
+.verdict-title { font-size: 19px; font-weight: 600; margin: 2px 0; }
+.verdict-sub { font-size: 13px; color: var(--muted); }
+.check-group { margin-bottom: 12px; padding-bottom: 6px; }
+.check-group h3 { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
+.check { display: grid; grid-template-columns: 68px minmax(0, 1fr) auto; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); align-items: start; }
+.check-group h3 + .check, .check-group .panel-note + .check { border-top: 0; }
+.check .name { font-size: 14px; font-weight: 500; }
+.check .detail { font-size: 12px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
+.check .rule { font-size: 11px; color: #6c7886; margin-top: 3px; }
+.check .val { font-size: 14px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.chip { display: inline-block; text-align: center; font-size: 11px; font-weight: 600; padding: 3px 0; border-radius: 10px; }
+.chip.good { background: rgba(38,166,154,0.18); color: var(--pos); }
+.chip.ok { background: rgba(224,179,65,0.18); color: #e0b341; }
+.chip.bad { background: rgba(239,83,80,0.18); color: var(--neg); }
+.chip.na { background: var(--line); color: var(--muted); }

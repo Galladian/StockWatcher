@@ -9,6 +9,7 @@ from .config import get_secret_key
 from .data import TickerNotFound
 from .db import init_db
 from .metrics import build_metrics
+from .screener import build_screen
 from .service import TIMEFRAMES, build_chart
 
 
@@ -61,6 +62,16 @@ def chart(ticker: str, timeframe: str = Query("D")):
 def metrics(ticker: str):
     try:
         return build_metrics(ticker)
+    except TickerNotFound:
+        raise HTTPException(404, f"No data found for '{ticker.upper()}'")
+    except Exception as e:  # provider/network failure
+        raise HTTPException(502, f"Data provider error: {e}")
+
+
+@app.get("/api/screener/{ticker}")
+def screener(ticker: str):
+    try:
+        return build_screen(ticker)
     except TickerNotFound:
         raise HTTPException(404, f"No data found for '{ticker.upper()}'")
     except Exception as e:  # provider/network failure
