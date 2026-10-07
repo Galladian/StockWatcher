@@ -12,7 +12,8 @@ input { background: var(--bg); border: 1px solid var(--line); color: var(--text)
 input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 button { background: var(--bg); color: var(--text); border: 1px solid var(--line); padding: 8px 12px; border-radius: 6px; font: inherit; cursor: pointer; }
 button:hover { border-color: var(--muted); }
-.tabs { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+.controls { display: flex; flex-wrap: wrap; gap: 12px 20px; margin-left: auto; }
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; }
 .tabs button.active { background: var(--accent); border-color: var(--accent); color: #07121f; font-weight: 600; }
 .quote { display: flex; align-items: baseline; gap: 12px; font-variant-numeric: tabular-nums; }
 .sym { font-size: 20px; font-weight: 600; }
@@ -21,3 +22,4 @@ button:hover { border-color: var(--muted); }
 .error { padding: 10px 16px; background: #3a1d1f; color: #ffb4b4; border-bottom: 1px solid #5a2a2d; }
 .main { flex: 1; min-height: 0; }
 .chart { width: 100%; height: 100%; }
+.caption { padding: 6px 16px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--line); }

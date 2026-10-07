@@ -1,12 +1,17 @@
 export type Timeframe = "D" | "W" | "M" | "Q" | "Y" | "5Y";
+export type ChartType = "candles" | "line";
 
 export interface ChartData {
   ticker: string;
   timeframe: Timeframe;
-  candles: { time: string; open: number; high: number; low: number; close: number }[];
-  volume: { time: string; value: number; up: boolean }[];
-  rsi: { time: string; value: number }[];
-  macd: { time: string; macd: number; signal: number; hist: number }[];
+  label: string;
+  intraday: boolean;
+  quote: { price: number; change_pct: number | null };
+  // `time` is UTC seconds (intraday values are exchange wall-clock time)
+  candles: { time: number; open: number; high: number; low: number; close: number }[];
+  volume: { time: number; value: number; up: boolean }[];
+  rsi: { time: number; value: number }[];
+  macd: { time: number; macd: number; signal: number; hist: number }[];
 }
 
 export async function fetchChart(ticker: string, timeframe: Timeframe): Promise<ChartData> {

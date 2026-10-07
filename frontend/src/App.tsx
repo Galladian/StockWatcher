@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchChart, type Timeframe } from "./api";
+import { fetchChart, type ChartType, type Timeframe } from "./api";
 import StockChart from "./StockChart";
 
 const TIMEFRAMES: { id: Timeframe; label: string }[] = [
@@ -15,7 +15,8 @@ const TIMEFRAMES: { id: Timeframe; label: string }[] = [
 export default function App() {
   const [input, setInput] = useState("AAPL");
   const [ticker, setTicker] = useState("AAPL");
-  const [timeframe, setTimeframe] = useState<Timeframe>("D");
+  const [timeframe, setTimeframe] = useState<Timeframe>("Y");
+  const [chartType, setChartType] = useState<ChartType>("candles");
 
   const { data, error, isFetching } = useQuery({
     queryKey: ["chart", ticker, timeframe],
@@ -29,9 +30,7 @@ export default function App() {
     if (t) setTicker(t);
   };
 
-  const last = data?.candles.at(-1);
-  const prev = data?.candles.at(-2);
-  const change = last && prev ? ((last.close - prev.close) / prev.close) * 100 : null;
+  const change = data?.quote.change_pct ?? null;
 
   return (
     <div className="app">
@@ -49,9 +48,9 @@ export default function App() {
 
         <div className="quote">
           <span className="sym">{data?.ticker ?? ticker}</span>
-          {last && <span className="px">{last.close.toFixed(2)}</span>}
+          {data && <span className="px">{data.quote.price.toFixed(2)}</span>}
           {change !== null && (
-            <span className={change >= 0 ? "pos" : "neg"}>
+            <span className={change >= 0 ? "pos" : "neg"} title="Change vs previous close">
               {change >= 0 ? "+" : ""}
               {change.toFixed(2)}%
             </span>
@@ -59,21 +58,32 @@ export default function App() {
           {isFetching && <span className="muted">Loading…</span>}
         </div>
 
-        <div className="tabs" role="group" aria-label="Timeframe">
-          {TIMEFRAMES.map((t) => (
-            <button
-              key={t.id}
-              className={t.id === timeframe ? "active" : ""}
-              onClick={() => setTimeframe(t.id)}
-            >
-              {t.label}
+        <div className="controls">
+          <div className="tabs" role="group" aria-label="Chart type">
+            <button className={chartType === "candles" ? "active" : ""} onClick={() => setChartType("candles")}>
+              Candles
             </button>
-          ))}
+            <button className={chartType === "line" ? "active" : ""} onClick={() => setChartType("line")}>
+              Line
+            </button>
+          </div>
+          <div className="tabs" role="group" aria-label="Timeframe">
+            {TIMEFRAMES.map((t) => (
+              <button
+                key={t.id}
+                className={t.id === timeframe ? "active" : ""}
+                onClick={() => setTimeframe(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
       {error && <div className="error">{(error as Error).message}. Check the ticker and try again.</div>}
-      <main className="main">{data && <StockChart data={data} />}</main>
+      {data && <div className="caption">{data.label}</div>}
+      <main className="main">{data && <StockChart data={data} chartType={chartType} />}</main>
     </div>
   );
 }

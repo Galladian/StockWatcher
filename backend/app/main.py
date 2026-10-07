@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
-from .data import TickerNotFound, get_daily
+from .data import TickerNotFound
 from .service import TIMEFRAMES, build_chart
 
 app = FastAPI(title="Stock Dashboard API")
@@ -24,9 +24,8 @@ def chart(ticker: str, timeframe: str = Query("D")):
     if timeframe not in TIMEFRAMES:
         raise HTTPException(400, f"timeframe must be one of {list(TIMEFRAMES)}")
     try:
-        daily = get_daily(ticker)
+        return build_chart(ticker, timeframe)
     except TickerNotFound:
         raise HTTPException(404, f"No data found for '{ticker.upper()}'")
     except Exception as e:  # provider/network failure
         raise HTTPException(502, f"Data provider error: {e}")
-    return {"ticker": ticker.upper(), "timeframe": timeframe, **build_chart(daily, timeframe)}

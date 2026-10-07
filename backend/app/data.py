@@ -1,32 +1,43 @@
 """Data provider layer. Only this file knows where prices come from.
-To switch to Polygon/Tiingo/etc., keep get_daily()'s signature and swap the body."""
+To switch to Polygon/Tiingo/etc., keep get_daily() and get_intraday() signatures and swap the bodies."""
 import time
 import pandas as pd
 import yfinance as yf
 
-_CACHE: dict[str, tuple[float, pd.DataFrame]] = {}
-_TTL_SECONDS = 300
+_CACHE: dict[tuple, tuple[float, pd.DataFrame]] = {}
 
 
 class TickerNotFound(Exception):
     pass
 
 
-def get_daily(ticker: str) -> pd.DataFrame:
-    """Full daily OHLCV history, split/dividend adjusted.
-    Columns: open, high, low, close, volume. Index: tz-naive DatetimeIndex."""
+def _fetch(ticker: str, interval: str, period: str, ttl: int) -> pd.DataFrame:
     ticker = ticker.upper().strip()
+    key = (ticker, interval, period)
     now = time.time()
-    hit = _CACHE.get(ticker)
-    if hit and now - hit[0] < _TTL_SECONDS:
+    hit = _CACHE.get(key)
+    if hit and now - hit[0] < ttl:
         return hit[1]
 
-    raw = yf.Ticker(ticker).history(period="max", interval="1d", auto_adjust=True)
+    raw = yf.Ticker(ticker).history(period=period, interval=interval, auto_adjust=True)
     if raw is None or raw.empty:
         raise TickerNotFound(ticker)
 
     df = raw.rename(columns=str.lower)[["open", "high", "low", "close", "volume"]]
-    df.index = pd.to_datetime(df.index).tz_localize(None).normalize()
+    # Drop the timezone but keep exchange wall-clock time (so 9:30 stays 9:30 Eastern)
+    df.index = pd.to_datetime(df.index).tz_localize(None)
+    if interval == "1d":
+        df.index = df.index.normalize()
     df = df.dropna(subset=["open", "high", "low", "close"])
-    _CACHE[ticker] = (now, df)
+    _CACHE[key] = (now, df)
     return df
+
+
+def get_daily(ticker: str) -> pd.DataFrame:
+    """Full daily OHLCV history, split/dividend adjusted."""
+    return _fetch(ticker, "1d", "max", ttl=300)
+
+
+def get_intraday(ticker: str, interval: str, period: str) -> pd.DataFrame:
+    """Recent intraday bars (regular trading hours), e.g. interval='5m', period='5d'."""
+    return _fetch(ticker, interval, period, ttl=60)
