@@ -1,10 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CandlestickSeries,
   ColorType,
   CrosshairMode,
   HistogramSeries,
   LineSeries,
+  LineType,
   createChart,
   type IChartApi,
   type ISeriesApi,
@@ -28,8 +29,10 @@ const C = {
 };
 
 // Relative pane heights, top to bottom: RSI, price, volume, MACD.
-// Stretch factors keep these proportions when the window resizes.
 const STRETCH = [1.2, 5, 1, 1.6];
+
+const compact = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 2 });
+const n2 = (v?: number) => (v === undefined ? "–" : v.toFixed(2));
 
 interface Series {
   rsi: ISeriesApi<"Line">;
@@ -42,10 +45,15 @@ interface Series {
   signal: ISeriesApi<"Line">;
 }
 
+const byTime = <T extends { time: number }>(a: T[]) => new Map(a.map((d) => [d.time, d]));
+
 export default function StockChart({ data, chartType }: { data: ChartData; chartType: ChartType }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<Series | null>(null);
+
+  const [hoverTime, setHoverTime] = useState<number | null>(null);
+  const [tops, setTops] = useState<number[]>([0, 0, 0, 0]); // y-offset of each pane
 
   // Create the chart once
   useEffect(() => {
@@ -63,8 +71,10 @@ export default function StockChart({ data, chartType }: { data: ChartData; chart
       timeScale: { borderColor: C.grid },
     });
 
+    // No series "title" tags: names live in the legend at the top-left of each pane,
+    // so nothing covers the newest candles. Values still show on the right axis.
     // Add in pane order: 0 RSI, 1 price, 2 volume, 3 MACD
-    const rsi = chart.addSeries(LineSeries, { color: C.rsi, lineWidth: 2, priceLineVisible: false, title: "RSI 14" }, 0);
+    const rsi = chart.addSeries(LineSeries, { color: C.rsi, lineWidth: 2, priceLineVisible: false }, 0);
     rsi.createPriceLine({ price: 70, color: C.down, lineStyle: 2, lineWidth: 1, axisLabelVisible: false });
     rsi.createPriceLine({ price: 30, color: C.up, lineStyle: 2, lineWidth: 1, axisLabelVisible: false });
 
@@ -76,7 +86,13 @@ export default function StockChart({ data, chartType }: { data: ChartData; chart
     const line = chart.addSeries(LineSeries, { color: C.price, lineWidth: 2, visible: false }, 1);
     const ema = chart.addSeries(
       LineSeries,
-      { color: C.ema, lineWidth: 2, priceLineVisible: false, crosshairMarkerVisible: false, title: "EMA 21" },
+      {
+        color: C.ema,
+        lineWidth: 2,
+        lineType: LineType.Curved,
+        priceLineVisible: false,
+        crosshairMarkerVisible: false,
+      },
       1
     );
     const volume = chart.addSeries(
@@ -85,15 +101,35 @@ export default function StockChart({ data, chartType }: { data: ChartData; chart
       2
     );
     const hist = chart.addSeries(HistogramSeries, { priceLineVisible: false, lastValueVisible: false }, 3);
-    const macd = chart.addSeries(LineSeries, { color: C.macd, lineWidth: 2, priceLineVisible: false, title: "MACD" }, 3);
-    const signal = chart.addSeries(LineSeries, { color: C.signal, lineWidth: 2, priceLineVisible: false, title: "Signal" }, 3);
+    const macd = chart.addSeries(LineSeries, { color: C.macd, lineWidth: 2, priceLineVisible: false }, 3);
+    const signal = chart.addSeries(LineSeries, { color: C.signal, lineWidth: 2, priceLineVisible: false }, 3);
 
     chart.panes().forEach((pane, i) => pane.setStretchFactor(STRETCH[i]));
 
     chartRef.current = chart;
     seriesRef.current = { rsi, candles, line, ema, volume, hist, macd, signal };
 
+    // Work out where each pane starts so the legends can sit inside them
+    const measure = () => {
+      let y = 0;
+      const next: number[] = [];
+      chart.panes().forEach((p) => {
+        next.push(y);
+        y += p.getHeight() + 1; // +1 for the separator
+      });
+      setTops((prev) => (prev.length === next.length && prev.every((v, i) => v === next[i]) ? prev : next));
+    };
+    const schedule = () => requestAnimationFrame(measure);
+    schedule();
+    const ro = new ResizeObserver(schedule);
+    ro.observe(el);
+    el.addEventListener("pointerup", schedule); // after dragging a pane separator
+
+    chart.subscribeCrosshairMove((p) => setHoverTime(typeof p.time === "number" ? p.time : null));
+
     return () => {
+      ro.disconnect();
+      el.removeEventListener("pointerup", schedule);
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
@@ -111,7 +147,6 @@ export default function StockChart({ data, chartType }: { data: ChartData; chart
     s.candles.setData(data.candles.map((d) => ({ ...d, time: d.time as Time })));
     s.line.setData(data.candles.map((d) => ({ time: d.time as Time, value: d.close })));
     s.ema.setData(data.ema.data.map((d) => ({ time: d.time as Time, value: d.value })));
-    s.ema.applyOptions({ title: data.ema.label });
     s.volume.setData(
       data.volume.map((d) => ({ time: d.time as Time, value: d.value, color: d.up ? C.upFaint : C.downFaint }))
     );
@@ -132,5 +167,57 @@ export default function StockChart({ data, chartType }: { data: ChartData; chart
     s.line.applyOptions({ visible: chartType === "line" });
   }, [chartType]);
 
-  return <div ref={containerRef} className="chart" />;
+  // Legend values: the hovered bar, or the latest bar when the mouse is away
+  const maps = useMemo(
+    () => ({
+      candles: byTime(data.candles),
+      ema: byTime(data.ema.data),
+      rsi: byTime(data.rsi),
+      volume: byTime(data.volume),
+      macd: byTime(data.macd),
+    }),
+    [data]
+  );
+  const t = hoverTime ?? data.candles[data.candles.length - 1]?.time;
+  const bar = t === undefined ? undefined : maps.candles.get(t);
+  const emaV = t === undefined ? undefined : maps.ema.get(t);
+  const rsiV = t === undefined ? undefined : maps.rsi.get(t);
+  const volV = t === undefined ? undefined : maps.volume.get(t);
+  const macdV = t === undefined ? undefined : maps.macd.get(t);
+  const barColor = bar && bar.close >= bar.open ? C.up : C.down;
+
+  return (
+    <div className="chart-wrap">
+      <div ref={containerRef} className="chart" />
+
+      <div className="legend" style={{ top: tops[0] + 6 }}>
+        <b style={{ color: C.rsi }}>RSI 14</b>
+        <span>{n2(rsiV?.value)}</span>
+      </div>
+
+      <div className="legend" style={{ top: tops[1] + 6 }}>
+        {bar && (
+          <span style={{ color: barColor }}>
+            O {n2(bar.open)} H {n2(bar.high)} L {n2(bar.low)} C {n2(bar.close)}
+          </span>
+        )}
+        <b style={{ color: C.ema }}>{data.ema.label}</b>
+        <span>{n2(emaV?.value)}</span>
+      </div>
+
+      <div className="legend" style={{ top: tops[2] + 6 }}>
+        <b>Volume</b>
+        <span>{volV ? compact.format(volV.value) : "–"}</span>
+      </div>
+
+      <div className="legend" style={{ top: tops[3] + 6 }}>
+        <b style={{ color: C.macd }}>MACD</b>
+        <span>{n2(macdV?.macd)}</span>
+        <b style={{ color: C.signal }}>Signal</b>
+        <span>{n2(macdV?.signal)}</span>
+        <b>Hist</b>
+        <span>{n2(macdV?.hist)}</span>
+      </div>
+    </div>
+  );
 }

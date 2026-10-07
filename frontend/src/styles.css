@@ -23,3 +23,6 @@ button:hover { border-color: var(--muted); }
 .main { flex: 1; min-height: 0; }
 .chart { width: 100%; height: 100%; }
 .caption { padding: 6px 16px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--line); }
+.chart-wrap { position: relative; width: 100%; height: 100%; }
+.legend { position: absolute; left: 10px; z-index: 2; display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 2px 8px; border-radius: 4px; background: rgba(15, 20, 25, 0.7); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; pointer-events: none; }
+.legend b { font-weight: 600; }
