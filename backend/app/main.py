@@ -1,11 +1,24 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 
+from . import auth, portfolio
+from .config import get_secret_key
 from .data import TickerNotFound
+from .db import init_db
 from .metrics import build_metrics
 from .service import TIMEFRAMES, build_chart
 
-app = FastAPI(title="Stock Dashboard API")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    init_db()
+    yield
+
+
+app = FastAPI(title="Stock Dashboard API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -13,6 +26,18 @@ app.add_middleware(
     allow_methods=["GET"],
     allow_headers=["*"],
 )
+# Signed, httpOnly login cookie (page scripts can't read it)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=get_secret_key(),
+    session_cookie="sw_session",
+    max_age=14 * 24 * 3600,
+    same_site="lax",
+    https_only=False,  # local http; set True if you ever serve over HTTPS
+)
+
+app.include_router(auth.router)
+app.include_router(portfolio.router)
 
 
 @app.get("/api/health")

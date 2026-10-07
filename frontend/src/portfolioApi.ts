@@ -1,0 +1,67 @@
+export type TxType = "buy" | "sell" | "dividend";
+
+// Decimals arrive as strings so no precision is lost on the way
+export interface Transaction {
+  id: number;
+  ticker: string;
+  type: TxType;
+  trade_date: string;
+  quantity: string;
+  price: string;
+  fees: string;
+  note: string | null;
+}
+
+export interface NewTransaction {
+  ticker: string;
+  type: TxType;
+  trade_date: string;
+  quantity: string;
+  price: string;
+  fees: string;
+  note: string;
+}
+
+function errorMessage(detail: unknown, status: number): string {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((d) => {
+        const field = Array.isArray(d?.loc) ? String(d.loc[d.loc.length - 1]).replace("_", " ") : "";
+        const msg = String(d?.msg ?? "Invalid value").replace(/^Value error, /, "");
+        return field && !msg.toLowerCase().includes(field) ? `${field}: ${msg}` : msg;
+      })
+      .join(". ");
+  }
+  return `Request failed (${status})`;
+}
+
+async function request<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(errorMessage(body.detail, res.status));
+  }
+  return (res.status === 204 ? undefined : await res.json()) as T;
+}
+
+export const fetchMe = () => request<{ username: string | null }>("/api/auth/me");
+
+export const login = (username: string, password: string) =>
+  request<{ username: string }>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+
+export const logout = () => request<{ ok: boolean }>("/api/auth/logout", { method: "POST" });
+
+export const listTransactions = () => request<Transaction[]>("/api/portfolio/transactions");
+
+export const addTransaction = (tx: NewTransaction) =>
+  request<Transaction>("/api/portfolio/transactions", { method: "POST", body: JSON.stringify(tx) });
+
+export const deleteTransaction = (id: number) =>
+  request<void>(`/api/portfolio/transactions/${id}`, { method: "DELETE" });
