@@ -63,6 +63,9 @@ export const listTransactions = () => request<Transaction[]>("/api/portfolio/tra
 export const addTransaction = (tx: NewTransaction) =>
   request<Transaction>("/api/portfolio/transactions", { method: "POST", body: JSON.stringify(tx) });
 
+export const updateTransaction = (id: number, tx: NewTransaction) =>
+  request<Transaction>(`/api/portfolio/transactions/${id}`, { method: "PUT", body: JSON.stringify(tx) });
+
 export const deleteTransaction = (id: number) =>
   request<void>(`/api/portfolio/transactions/${id}`, { method: "DELETE" });
 

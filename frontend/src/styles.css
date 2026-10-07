@@ -159,3 +159,13 @@ select.ccy { padding: 2px 6px; font-size: 12px; border-radius: 5px; }
 .chip.ok { background: rgba(224,179,65,0.18); color: #e0b341; }
 .chip.bad { background: rgba(239,83,80,0.18); color: var(--neg); }
 .chip.na { background: var(--line); color: var(--muted); }
+
+.form-actions { display: flex; gap: 8px; align-items: center; }
+.form-actions .primary { flex: 1; }
+.card.editing { border-color: var(--accent); }
+.editing-banner { margin: 0 0 12px; font-size: 13px; color: var(--accent); }
+.ledger tr.editing-row td { background: rgba(77, 163, 255, 0.08); }
+.more { padding: 1px 9px; font-size: 16px; line-height: 1.2; letter-spacing: 1px; color: var(--muted); }
+.more.has-note { color: var(--accent); border-color: rgba(77, 163, 255, 0.5); }
+.more[aria-expanded="true"] { background: var(--line); }
+.ledger tr.note-row td { white-space: normal; background: rgba(255, 255, 255, 0.025); font-size: 13px; padding-top: 6px; padding-bottom: 10px; }

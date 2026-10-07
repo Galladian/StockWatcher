@@ -80,6 +80,18 @@ def add_transaction(body: TransactionIn, user: User = Depends(current_user), db:
     return tx
 
 
+@router.put("/transactions/{tx_id}", response_model=TransactionOut)
+def update_transaction(tx_id: int, body: TransactionIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    # Filtering by user_id means you can only ever touch your own rows
+    tx = db.scalar(select(Transaction).where(Transaction.id == tx_id, Transaction.user_id == user.id))
+    if tx is None:
+        raise HTTPException(404, "Transaction not found")
+    for field, value in body.model_dump().items():
+        setattr(tx, field, value)
+    db.commit()
+    return tx
+
+
 @router.delete("/transactions/{tx_id}", status_code=204)
 def delete_transaction(tx_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     # Filtering by user_id means you can only ever touch your own rows

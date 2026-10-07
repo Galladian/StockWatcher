@@ -1,10 +1,10 @@
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, Fragment, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import LoginForm from "./LoginForm";
 import { isoToDmy, localTodayIso, maskDmy, parseDmy } from "./dates";
 import {
   CURRENCIES, addCash, addTransaction, deleteCash, deleteTransaction, fetchMe, fetchSummary,
-  listTransactions, updateCash, type CashAccount, type Transaction, type TxType,
+  listTransactions, updateCash, updateTransaction, type CashAccount, type Transaction, type TxType,
 } from "./portfolioApi";
 
 // ---------- formatting ----------
@@ -270,41 +270,87 @@ function Transactions() {
   const qc = useQueryClient();
   const txs = useQuery({ queryKey: ["transactions"], queryFn: listTransactions });
 
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [type, setType] = useState<TxType>("buy");
   const [ticker, setTicker] = useState("");
   const [dateText, setDateText] = useState(isoToDmy(localTodayIso()));
   const date = parseDmy(dateText); // ISO string, or null while it isn't a valid date
-  const pickerRef = useRef<HTMLInputElement>(null);
   const [quantity, setQuantity] = useState("");
   const [price, setPrice] = useState("");
   const [fees, setFees] = useState("");
   const [note, setNote] = useState("");
+  const [openNotes, setOpenNotes] = useState<Set<number>>(new Set());
+  const pickerRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const editing = editingId !== null;
+  const clean = (v: string) => v.replace(/,/g, "");
+
+  const resetForm = () => {
+    setEditingId(null);
+    setType("buy");
+    setTicker("");
+    setDateText(isoToDmy(localTodayIso()));
+    setQuantity(""); setPrice(""); setFees(""); setNote("");
+  };
 
   const changed = () => {
     qc.invalidateQueries({ queryKey: ["transactions"] });
     qc.invalidateQueries({ queryKey: ["summary"] });
   };
 
-  const add = useMutation({
-    mutationFn: () => addTransaction({ ticker, type, trade_date: date ?? "", quantity, price, fees: fees || "0", note }),
+  const save = useMutation({
+    mutationFn: () => {
+      const body = {
+        ticker, type, trade_date: date ?? "", quantity: clean(quantity), price: clean(price),
+        fees: clean(fees) || "0", note,
+      };
+      return editingId === null ? addTransaction(body) : updateTransaction(editingId, body);
+    },
     onSuccess: () => {
       changed();
-      setTicker(""); setQuantity(""); setPrice(""); setFees(""); setNote("");
+      if (editing) resetForm();
+      else { setTicker(""); setQuantity(""); setPrice(""); setFees(""); setNote(""); } // keep type and date for quick repeat entry
     },
   });
+
   const remove = useMutation({ mutationFn: deleteTransaction, onSuccess: changed });
+
+  const startEdit = (t: Transaction) => {
+    save.reset();
+    setEditingId(t.id);
+    setType(t.type);
+    setTicker(t.ticker);
+    setDateText(isoToDmy(t.trade_date));
+    setQuantity(t.quantity);
+    setPrice(t.price);
+    setFees(Number(t.fees) ? t.fees : "");
+    setNote(t.note ?? "");
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  };
+
+  const confirmDelete = (t: Transaction) => {
+    if (!window.confirm(`Delete this ${t.type} of ${t.ticker} on ${isoToDmy(t.trade_date)}?`)) return;
+    if (editingId === t.id) resetForm();
+    remove.mutate(t.id);
+  };
+
+  const toggleNote = (id: number) =>
+    setOpenNotes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    add.mutate();
-  };
-  const confirmDelete = (t: Transaction) => {
-    if (window.confirm(`Delete this ${t.type} of ${t.ticker} on ${isoToDmy(t.trade_date)}?`)) remove.mutate(t.id);
+    save.mutate();
   };
 
   return (
     <>
-      <form className="card" onSubmit={submit}>
+      <form ref={formRef} className={`card${editing ? " editing" : ""}`} onSubmit={submit}>
+        {editing && <p className="editing-banner">Editing a trade. Save your changes or cancel.</p>}
         <div className="grid">
           <label className="field">
             Type
@@ -365,9 +411,12 @@ function Transactions() {
             Note (optional)
             <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} />
           </label>
-          <button className="primary" type="submit" disabled={add.isPending || !ticker || !quantity || !price || !date}>
-            {add.isPending ? "Adding…" : "Add trade"}
-          </button>
+          <div className="form-actions">
+            <button className="primary" type="submit" disabled={save.isPending || !ticker || !quantity || !price || !date}>
+              {editing ? (save.isPending ? "Saving…" : "Save changes") : (save.isPending ? "Adding…" : "Add trade")}
+            </button>
+            {editing && <button type="button" onClick={resetForm}>Cancel</button>}
+          </div>
         </div>
         {dateText.length === 10 && !date && (
           <p className="form-error">Enter a real date as DD/MM/YYYY that isn't in the future.</p>
@@ -375,7 +424,7 @@ function Transactions() {
         <p className="hint">
           Already own the shares? Enter the date you bought them, or your best estimate. Day change counts shares from the date you enter.
         </p>
-        {add.error && <p className="form-error">{(add.error as Error).message}</p>}
+        {save.error && <p className="form-error">{(save.error as Error).message}</p>}
       </form>
 
       <h2>Transactions</h2>
@@ -389,23 +438,48 @@ function Transactions() {
               <tr>
                 <th>Date</th><th>Type</th><th>Ticker</th>
                 <th className="num">Shares</th><th className="num">Price</th><th className="num">Fees</th><th className="num">Total</th>
-                <th>Note</th><th />
+                <th />
               </tr>
             </thead>
             <tbody>
-              {txs.data.map((t) => (
-                <tr key={t.id}>
-                  <td>{isoToDmy(t.trade_date)}</td>
-                  <td><span className={`tag ${t.type}`}>{t.type}</span></td>
-                  <td><b>{t.ticker}</b></td>
-                  <td className="num">{shares(t.quantity)}</td>
-                  <td className="num">{money(Number(t.price), "USD", 4)}</td>
-                  <td className="num">{Number(t.fees) ? money(Number(t.fees), "USD") : "–"}</td>
-                  <td className="num">{money(txTotal(t), "USD")}</td>
-                  <td className="note">{t.note}</td>
-                  <td><button className="del" onClick={() => confirmDelete(t)}>Delete</button></td>
-                </tr>
-              ))}
+              {txs.data.map((t) => {
+                const open = openNotes.has(t.id);
+                return (
+                  <Fragment key={t.id}>
+                    <tr className={editingId === t.id ? "editing-row" : ""}>
+                      <td>{isoToDmy(t.trade_date)}</td>
+                      <td><span className={`tag ${t.type}`}>{t.type}</span></td>
+                      <td><b>{t.ticker}</b></td>
+                      <td className="num">{shares(t.quantity)}</td>
+                      <td className="num">{money(Number(t.price), "USD", 4)}</td>
+                      <td className="num">{Number(t.fees) ? money(Number(t.fees), "USD") : "–"}</td>
+                      <td className="num">{money(txTotal(t), "USD")}</td>
+                      <td className="actions">
+                        <button
+                          className={`more${t.note ? " has-note" : ""}`}
+                          aria-expanded={open}
+                          aria-label={open ? "Hide note" : "Show note"}
+                          title={t.note ? (open ? "Hide note" : "Show note") : "No note"}
+                          onClick={() => toggleNote(t.id)}
+                        >
+                          &hellip;
+                        </button>{" "}
+                        <button className="del" onClick={() => startEdit(t)}>Edit</button>{" "}
+                        <button className="del" onClick={() => confirmDelete(t)}>Delete</button>
+                      </td>
+                    </tr>
+                    {open && (
+                      <tr className="note-row">
+                        <td colSpan={8}>
+                          {t.note
+                            ? <><span className="muted">Note: </span>{t.note}</>
+                            : <span className="muted">No note on this trade. Use Edit to add one.</span>}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
