@@ -1,7 +1,7 @@
 """Portfolio maths. Pure functions: ledger rows + quotes in, summary out.
 
 Method: average cost. A sell removes shares at the current average cost per share, and the
-difference between sale proceeds and that cost is realized P&L. Fees on buys are added to cost
+difference between sale proceeds and that cost is realised P&L. Fees on buys are added to cost
 and fees on sells reduce proceeds. Dividends are counted as income, separate from price P&L.
 
 Day change = value now - value at the previous close - money put in during the latest session.
@@ -94,7 +94,7 @@ def compute_portfolio(txs, quotes: dict) -> dict:
         realized_total += realized
         dividends_total += divs
         if shares <= 0:
-            continue  # closed position: only its realized P&L / dividends remain
+            continue  # closed position: only its realised P&L / dividends remain
 
         h = {"ticker": ticker, "shares": shares, "cost": cost, "price": None}
         if quote is None:

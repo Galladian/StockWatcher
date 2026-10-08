@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ChartPage from "./ChartPage";
 import PortfolioPage from "./PortfolioPage";
 import ScreenerPage from "./ScreenerPage";
+import SettingsMenu from "./SettingsMenu";
 import { fetchMe, logout } from "./portfolioApi";
 
 export default function App() {
@@ -35,6 +36,7 @@ export default function App() {
             <button className="linkbtn" onClick={() => signOut.mutate()}>Log out</button>
           </>
         )}
+        <SettingsMenu />
       </nav>
 
       <div className="page">

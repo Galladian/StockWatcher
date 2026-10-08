@@ -184,7 +184,7 @@ function Holdings({ currency, pickCurrency }: { currency: string; pickCurrency: 
             <div className={`sub ${tone(t.day_change_pct)}`}>{signedPct(t.day_change_pct)} on your stocks</div>
           </div>
           <div className="card stat">
-            <div className="label">Unrealized profit and loss</div>
+            <div className="label">Unrealised profit and loss</div>
             <div className={`value ${tone(t.unrealized)}`}>{signedMoney(t.unrealized, shown)}</div>
             <div className={`sub ${tone(t.unrealized_pct)}`}>{signedPct(t.unrealized_pct)} on cost</div>
           </div>
@@ -192,7 +192,7 @@ function Holdings({ currency, pickCurrency }: { currency: string; pickCurrency: 
             <div className="label">Total return</div>
             <div className={`value ${tone(t.total_return)}`}>{signedMoney(t.total_return, shown)}</div>
             <div className="sub">
-              Includes {signedMoney(t.realized, shown)} realized and {money(t.dividends, shown)} dividends
+              Includes {signedMoney(t.realized, shown)} realised and {money(t.dividends, shown)} dividends
             </div>
           </div>
         </div>
@@ -207,7 +207,7 @@ function Holdings({ currency, pickCurrency }: { currency: string; pickCurrency: 
       {holdings.length === 0 ? (
         <div className="empty">No stock holdings yet. Record a buy on the Transactions tab and it will show up here.</div>
       ) : (
-        <div className="card table-wrap holdings">
+        <div className="card table-wrap holdings sticky-head">
           <table className="ledger">
             <thead>
               <tr>
@@ -218,7 +218,7 @@ function Holdings({ currency, pickCurrency }: { currency: string; pickCurrency: 
                 <th className="num">Day change</th>
                 <th className="num">Market value</th>
                 <th>Weight</th>
-                <th className="num">Unrealized P&amp;L</th>
+                <th className="num">Unrealised P&amp;L</th>
               </tr>
             </thead>
             <tbody>
@@ -432,7 +432,7 @@ function Transactions() {
       {txs.error && <p className="form-error">{(txs.error as Error).message}</p>}
       {txs.data && txs.data.length === 0 && <div className="empty">No trades yet. Add your first one above.</div>}
       {txs.data && txs.data.length > 0 && (
-        <div className="card table-wrap">
+        <div className="card table-wrap sticky-head">
           <table className="ledger">
             <thead>
               <tr>

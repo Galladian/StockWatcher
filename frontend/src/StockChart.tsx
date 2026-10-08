@@ -8,25 +8,27 @@ import {
   LineType,
   createChart,
   type IChartApi,
+  type IPriceLine,
   type ISeriesApi,
   type Time,
 } from "lightweight-charts";
 import type { ChartData, ChartType } from "./api";
+import { useTheme } from "./theme";
 
-const C = {
-  bg: "#0f1419",
-  text: "#9aa5b1",
-  grid: "#1b222b",
-  up: "#26a69a",
-  down: "#ef5350",
-  upFaint: "rgba(38,166,154,0.45)",
-  downFaint: "rgba(239,83,80,0.45)",
-  rsi: "#b794f4",
-  price: "#4da3ff",
-  macd: "#4da3ff",
-  signal: "#f6ad55",
-  ema: "#ffd54f",
+// The chart draws on a canvas, so it can't use the CSS variables. Keep these in step with styles.css.
+const THEMES = {
+  dark: {
+    bg: "#0f1419", text: "#9aa5b1", grid: "#1b222b",
+    up: "#26a69a", down: "#ef5350", upFaint: "rgba(38,166,154,0.45)", downFaint: "rgba(239,83,80,0.45)",
+    rsi: "#b794f4", price: "#4da3ff", macd: "#4da3ff", signal: "#f6ad55", ema: "#ffd54f",
+  },
+  light: {
+    bg: "#ffffff", text: "#59636e", grid: "#eaeef2",
+    up: "#0e7a6c", down: "#cf222e", upFaint: "rgba(14,122,108,0.40)", downFaint: "rgba(207,34,46,0.40)",
+    rsi: "#8250df", price: "#0969da", macd: "#0969da", signal: "#bc4c00", ema: "#bf8700",
+  },
 };
+type Colors = typeof THEMES.dark;
 
 // Relative pane heights, top to bottom: RSI, price, volume, MACD.
 const STRETCH = [1.2, 5, 1, 1.6];
@@ -36,6 +38,7 @@ const n2 = (v?: number) => (v === undefined ? "–" : v.toFixed(2));
 
 interface Series {
   rsi: ISeriesApi<"Line">;
+  rsiLines: IPriceLine[]; // overbought, oversold
   candles: ISeriesApi<"Candlestick">;
   line: ISeriesApi<"Line">;
   ema: ISeriesApi<"Line">;
@@ -52,11 +55,17 @@ export default function StockChart({ data, chartType }: { data: ChartData; chart
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<Series | null>(null);
 
+  const { resolved } = useTheme();
+  const colors: Colors = THEMES[resolved];
+  const colorsRef = useRef(colors);
+  colorsRef.current = colors;
+
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [tops, setTops] = useState<number[]>([0, 0, 0, 0]); // y-offset of each pane
 
   // Create the chart once
   useEffect(() => {
+    const C = colorsRef.current;
     const el = containerRef.current!;
     const chart = createChart(el, {
       autoSize: true,
@@ -75,8 +84,10 @@ export default function StockChart({ data, chartType }: { data: ChartData; chart
     // so nothing covers the newest candles. Values still show on the right axis.
     // Add in pane order: 0 RSI, 1 price, 2 volume, 3 MACD
     const rsi = chart.addSeries(LineSeries, { color: C.rsi, lineWidth: 2, priceLineVisible: false }, 0);
-    rsi.createPriceLine({ price: 70, color: C.down, lineStyle: 2, lineWidth: 1, axisLabelVisible: false });
-    rsi.createPriceLine({ price: 30, color: C.up, lineStyle: 2, lineWidth: 1, axisLabelVisible: false });
+    const rsiLines = [
+      rsi.createPriceLine({ price: 70, color: C.down, lineStyle: 2, lineWidth: 1, axisLabelVisible: false }),
+      rsi.createPriceLine({ price: 30, color: C.up, lineStyle: 2, lineWidth: 1, axisLabelVisible: false }),
+    ];
 
     const candles = chart.addSeries(
       CandlestickSeries,
@@ -86,13 +97,7 @@ export default function StockChart({ data, chartType }: { data: ChartData; chart
     const line = chart.addSeries(LineSeries, { color: C.price, lineWidth: 2, visible: false }, 1);
     const ema = chart.addSeries(
       LineSeries,
-      {
-        color: C.ema,
-        lineWidth: 2,
-        lineType: LineType.Curved,
-        priceLineVisible: false,
-        crosshairMarkerVisible: false,
-      },
+      { color: C.ema, lineWidth: 2, lineType: LineType.Curved, priceLineVisible: false, crosshairMarkerVisible: false },
       1
     );
     const volume = chart.addSeries(
@@ -107,7 +112,7 @@ export default function StockChart({ data, chartType }: { data: ChartData; chart
     chart.panes().forEach((pane, i) => pane.setStretchFactor(STRETCH[i]));
 
     chartRef.current = chart;
-    seriesRef.current = { rsi, candles, line, ema, volume, hist, macd, signal };
+    seriesRef.current = { rsi, rsiLines, candles, line, ema, volume, hist, macd, signal };
 
     // Work out where each pane starts so the legends can sit inside them
     const measure = () => {
@@ -136,6 +141,27 @@ export default function StockChart({ data, chartType }: { data: ChartData; chart
     };
   }, []);
 
+  // Re-colour the chart when the theme changes
+  useEffect(() => {
+    const s = seriesRef.current;
+    const chart = chartRef.current;
+    if (!s || !chart) return;
+    chart.applyOptions({
+      layout: { background: { type: ColorType.Solid, color: colors.bg }, textColor: colors.text, panes: { separatorColor: colors.grid } },
+      grid: { vertLines: { color: colors.grid }, horzLines: { color: colors.grid } },
+      rightPriceScale: { borderColor: colors.grid },
+      timeScale: { borderColor: colors.grid },
+    });
+    s.rsi.applyOptions({ color: colors.rsi });
+    s.rsiLines[0].applyOptions({ color: colors.down });
+    s.rsiLines[1].applyOptions({ color: colors.up });
+    s.candles.applyOptions({ upColor: colors.up, downColor: colors.down, wickUpColor: colors.up, wickDownColor: colors.down });
+    s.line.applyOptions({ color: colors.price });
+    s.ema.applyOptions({ color: colors.ema });
+    s.macd.applyOptions({ color: colors.macd });
+    s.signal.applyOptions({ color: colors.signal });
+  }, [colors]);
+
   // Push new data whenever ticker/timeframe changes
   useEffect(() => {
     const s = seriesRef.current;
@@ -147,17 +173,24 @@ export default function StockChart({ data, chartType }: { data: ChartData; chart
     s.candles.setData(data.candles.map((d) => ({ ...d, time: d.time as Time })));
     s.line.setData(data.candles.map((d) => ({ time: d.time as Time, value: d.close })));
     s.ema.setData(data.ema.data.map((d) => ({ time: d.time as Time, value: d.value })));
-    s.volume.setData(
-      data.volume.map((d) => ({ time: d.time as Time, value: d.value, color: d.up ? C.upFaint : C.downFaint }))
-    );
     s.rsi.setData(data.rsi.map((d) => ({ time: d.time as Time, value: d.value })));
     s.macd.setData(data.macd.map((d) => ({ time: d.time as Time, value: d.macd })));
     s.signal.setData(data.macd.map((d) => ({ time: d.time as Time, value: d.signal })));
-    s.hist.setData(
-      data.macd.map((d) => ({ time: d.time as Time, value: d.hist, color: d.hist >= 0 ? C.upFaint : C.downFaint }))
-    );
     chart.timeScale().fitContent();
   }, [data]);
+
+  // The volume and histogram bars carry their own colours, so they are redrawn on a theme change
+  // (this doesn't touch the zoom).
+  useEffect(() => {
+    const s = seriesRef.current;
+    if (!s) return;
+    s.volume.setData(
+      data.volume.map((d) => ({ time: d.time as Time, value: d.value, color: d.up ? colors.upFaint : colors.downFaint }))
+    );
+    s.hist.setData(
+      data.macd.map((d) => ({ time: d.time as Time, value: d.hist, color: d.hist >= 0 ? colors.upFaint : colors.downFaint }))
+    );
+  }, [data, colors]);
 
   // Candles <-> line
   useEffect(() => {
@@ -184,14 +217,14 @@ export default function StockChart({ data, chartType }: { data: ChartData; chart
   const rsiV = t === undefined ? undefined : maps.rsi.get(t);
   const volV = t === undefined ? undefined : maps.volume.get(t);
   const macdV = t === undefined ? undefined : maps.macd.get(t);
-  const barColor = bar && bar.close >= bar.open ? C.up : C.down;
+  const barColor = bar && bar.close >= bar.open ? colors.up : colors.down;
 
   return (
     <div className="chart-wrap">
       <div ref={containerRef} className="chart" />
 
       <div className="legend" style={{ top: tops[0] + 6 }}>
-        <b style={{ color: C.rsi }}>RSI 14</b>
+        <b style={{ color: colors.rsi }}>RSI 14</b>
         <span>{n2(rsiV?.value)}</span>
       </div>
 
@@ -201,7 +234,7 @@ export default function StockChart({ data, chartType }: { data: ChartData; chart
             O {n2(bar.open)} H {n2(bar.high)} L {n2(bar.low)} C {n2(bar.close)}
           </span>
         )}
-        <b style={{ color: C.ema }}>{data.ema.label}</b>
+        <b style={{ color: colors.ema }}>{data.ema.label}</b>
         <span>{n2(emaV?.value)}</span>
       </div>
 
@@ -211,9 +244,9 @@ export default function StockChart({ data, chartType }: { data: ChartData; chart
       </div>
 
       <div className="legend" style={{ top: tops[3] + 6 }}>
-        <b style={{ color: C.macd }}>MACD</b>
+        <b style={{ color: colors.macd }}>MACD</b>
         <span>{n2(macdV?.macd)}</span>
-        <b style={{ color: C.signal }}>Signal</b>
+        <b style={{ color: colors.signal }}>Signal</b>
         <span>{n2(macdV?.signal)}</span>
         <b>Hist</b>
         <span>{n2(macdV?.hist)}</span>
