@@ -156,3 +156,63 @@ def get_growth(ticker: str) -> dict:
         pass
     _GROWTH_CACHE[ticker] = (now, out)
     return out
+
+
+# ---- company profiles for the portfolio breakdown ----
+import math  # noqa: E402
+
+_PROFILE_CACHE: dict[str, tuple[float, dict]] = {}
+
+
+def _fund_sectors(ticker: str) -> dict | None:
+    """An ETF's own sector weights (e.g. {'technology': 0.31, ...}) if Yahoo provides them."""
+    try:
+        w = dict(yf.Ticker(ticker).funds_data.sector_weightings)
+        out = {str(k): float(v) for k, v in w.items() if v is not None and math.isfinite(float(v)) and float(v) > 0}
+        return out or None
+    except Exception:
+        return None
+
+
+def get_profile(ticker: str) -> dict | None:
+    """Sector, size, beta etc. for one ticker. Cached for an hour. None if unavailable."""
+    ticker = ticker.upper().strip()
+    now = time.time()
+    hit = _PROFILE_CACHE.get(ticker)
+    if hit and now - hit[0] < 3600:
+        return hit[1]
+    try:
+        info = get_info(ticker)
+    except Exception:
+        return None
+
+    def f(*keys):
+        for k in keys:
+            try:
+                x = float(info.get(k))
+                if math.isfinite(x):
+                    return x
+            except (TypeError, ValueError):
+                pass
+        return None
+
+    qt = info.get("quoteType")
+    profile = {
+        "sector": info.get("sector"),
+        "industry": info.get("industry"),
+        "quote_type": qt,
+        "beta": f("beta", "beta3Year"),
+        "market_cap": f("marketCap"),
+        "forward_pe": f("forwardPE"),
+        "dividend_rate": f("dividendRate", "trailingAnnualDividendRate"),
+        "sector_weights": _fund_sectors(ticker) if qt in ("ETF", "MUTUALFUND") else None,
+    }
+    _PROFILE_CACHE[ticker] = (now, profile)
+    return profile
+
+
+def get_profiles(tickers: list[str]) -> dict[str, dict | None]:
+    if not tickers:
+        return {}
+    with ThreadPoolExecutor(max_workers=min(8, len(tickers))) as pool:
+        return dict(zip(tickers, pool.map(get_profile, tickers)))

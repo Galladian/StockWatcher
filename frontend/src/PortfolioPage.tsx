@@ -1,5 +1,6 @@
 import { FormEvent, Fragment, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Breakdown from "./Breakdown";
 import LoginForm from "./LoginForm";
 import { isoToDmy, localTodayIso, maskDmy, parseDmy } from "./dates";
 import {
@@ -69,7 +70,10 @@ function CashRow({ c, shown, onChanged }: { c: CashAccount; shown: string; onCha
 
 function CashSection({ cash, shown, total }: { cash: CashAccount[]; shown: string; total: number }) {
   const qc = useQueryClient();
-  const changed = () => qc.invalidateQueries({ queryKey: ["summary"] });
+  const changed = () => {
+    qc.invalidateQueries({ queryKey: ["summary"] });
+    qc.invalidateQueries({ queryKey: ["breakdown"] });
+  };
   const [label, setLabel] = useState("");
   const [currency, setCurrency] = useState("NZD");
   const [amount, setAmount] = useState("");
@@ -142,12 +146,7 @@ function loadCurrency(): string {
   }
 }
 
-function Holdings() {
-  const [currency, setCurrency] = useState(loadCurrency);
-  const pickCurrency = (c: string) => {
-    setCurrency(c);
-    try { localStorage.setItem("portfolioCurrency", c); } catch { /* ignore */ }
-  };
+function Holdings({ currency, pickCurrency }: { currency: string; pickCurrency: (c: string) => void }) {
 
   const { data, error, isLoading, isFetching, refetch, dataUpdatedAt } = useQuery({
     queryKey: ["summary", currency],
@@ -297,6 +296,7 @@ function Transactions() {
   const changed = () => {
     qc.invalidateQueries({ queryKey: ["transactions"] });
     qc.invalidateQueries({ queryKey: ["summary"] });
+    qc.invalidateQueries({ queryKey: ["breakdown"] });
   };
 
   const save = useMutation({
@@ -490,16 +490,24 @@ function Transactions() {
 
 // ---------- page ----------
 function PortfolioTabs() {
-  const [tab, setTab] = useState<"holdings" | "transactions">("holdings");
+  const [tab, setTab] = useState<"holdings" | "breakdown" | "transactions">("holdings");
+  const [currency, setCurrency] = useState(loadCurrency); // shared by Holdings and Breakdown
+  const pickCurrency = (c: string) => {
+    setCurrency(c);
+    try { localStorage.setItem("portfolioCurrency", c); } catch { /* ignore */ }
+  };
   return (
     <div className="scroll">
       <div className="wrap">
         <h1>Portfolio</h1>
         <div className="tabs page-tabs" role="group" aria-label="Portfolio sections">
           <button className={tab === "holdings" ? "active" : ""} onClick={() => setTab("holdings")}>Holdings</button>
+          <button className={tab === "breakdown" ? "active" : ""} onClick={() => setTab("breakdown")}>Breakdown</button>
           <button className={tab === "transactions" ? "active" : ""} onClick={() => setTab("transactions")}>Transactions</button>
         </div>
-        {tab === "holdings" ? <Holdings /> : <Transactions />}
+        {tab === "holdings" && <Holdings currency={currency} pickCurrency={pickCurrency} />}
+        {tab === "breakdown" && <Breakdown currency={currency} onCurrency={pickCurrency} />}
+        {tab === "transactions" && <Transactions />}
       </div>
     </div>
   );

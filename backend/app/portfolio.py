@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from . import data
 from .auth import current_user
+from .breakdown import compute_breakdown
 from .currency import SUPPORTED, convert, scale_summary
 from .db import get_db
 from .models import CashBalance, Transaction, User
@@ -150,8 +151,7 @@ def delete_cash(cash_id: int, user: User = Depends(current_user), db: Session = 
     db.commit()
 
 
-@router.get("/summary")
-def summary(currency: str = Query("NZD"), user: User = Depends(current_user), db: Session = Depends(get_db)):
+def _build_summary(currency: str, user: User, db: Session) -> dict:
     """Holdings, cash, total value, day change and P&L, shown in the chosen currency."""
     currency = currency.upper()
     if currency not in SUPPORTED:
@@ -193,3 +193,19 @@ def summary(currency: str = Query("NZD"), user: User = Depends(current_user), db
 
     result.update(currency=shown, fx_rate=factor if shown != "USD" else None, cash=cash_out)
     return result
+
+
+@router.get("/summary")
+def summary(currency: str = Query("NZD"), user: User = Depends(current_user), db: Session = Depends(get_db)):
+    return _build_summary(currency, user, db)
+
+
+@router.get("/breakdown")
+def breakdown(currency: str = Query("NZD"), user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Sector split, concentration and other portfolio characteristics, in the chosen currency."""
+    s = _build_summary(currency, user, db)
+    profiles = data.get_profiles([h["ticker"] for h in s["holdings"]])
+    out = compute_breakdown(s, profiles)
+    out["currency"] = s["currency"]
+    out["warnings"] = s["warnings"] + out["warnings"]
+    return out

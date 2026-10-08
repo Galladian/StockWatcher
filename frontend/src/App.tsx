@@ -18,6 +18,7 @@ export default function App() {
       qc.setQueryData(["me"], { username: null });
       qc.removeQueries({ queryKey: ["transactions"] });
       qc.removeQueries({ queryKey: ["summary"] });
+      qc.removeQueries({ queryKey: ["breakdown"] });
     },
   });
 

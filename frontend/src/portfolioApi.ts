@@ -135,3 +135,41 @@ export const updateCash = (id: number, c: CashInput) =>
   request<{ id: number }>(`/api/portfolio/cash/${id}`, { method: "PUT", body: JSON.stringify(c) });
 
 export const deleteCash = (id: number) => request<void>(`/api/portfolio/cash/${id}`, { method: "DELETE" });
+
+export interface SectorSlice {
+  name: string;
+  value: number;
+  weight: number;
+  holdings: { ticker: string; value: number }[];
+}
+
+export interface Mover {
+  ticker: string;
+  pct: number;
+  amount: number;
+}
+
+export interface BreakdownData {
+  currency: string;
+  total_value: number;
+  sectors: SectorSlice[];
+  concentration: {
+    holdings_count: number;
+    top: { ticker: string; weight: number } | null;
+    top3: number;
+    top5: number;
+    effective_n: number | null;
+    largest_sector: { name: string; weight: number } | null;
+  };
+  characteristics: {
+    beta: N; beta_coverage: N; forward_pe: N; pe_coverage: N;
+    dividend_income: number; dividend_yield: N; dividend_payers: number;
+  };
+  market_cap: { name: string; value: number; weight: number }[];
+  performance: { winners: number; losers: number; best: Mover | null; worst: Mover | null; day_best: Mover | null; day_worst: Mover | null };
+  observations: { tone: "good" | "ok" | "info"; text: string }[];
+  warnings: string[];
+}
+
+export const fetchBreakdown = (currency: string) =>
+  request<BreakdownData>(`/api/portfolio/breakdown?currency=${encodeURIComponent(currency)}`);
