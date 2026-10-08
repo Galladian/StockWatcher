@@ -253,3 +253,21 @@ select.ccy { padding: 2px 6px; font-size: 12px; border-radius: 5px; }
 .settings-panel legend { font-size: 12px; color: var(--muted); padding: 0; margin-bottom: 6px; }
 .radio { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 14px; cursor: pointer; }
 .radio input { accent-color: var(--accent); width: auto; margin: 0; padding: 0; border: 0; background: none; }
+
+/* ---- settings panel sections ---- */
+.settings-panel { width: 270px; }
+.settings-section + .settings-section { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.settings-label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.settings-section select { width: 100%; }
+.settings-hint { font-size: 12px; color: var(--muted); margin: 8px 0 0; line-height: 1.4; }
+.account-line { font-size: 14px; margin: 0 0 8px; }
+
+/* ---- transactions search and show-all ---- */
+.tx-search { width: 200px; }
+.more-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 2px 0; font-size: 13px; }
+
+/* ---- performance ---- */
+.range-tabs { margin: 0 0 12px; }
+.hist-card { padding: 8px; }
+.hist-wrap { position: relative; height: 380px; }
+.hist-chart { position: absolute; inset: 0; }

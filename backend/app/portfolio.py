@@ -12,6 +12,7 @@ from . import data
 from .auth import current_user
 from .breakdown import compute_breakdown
 from .currency import SUPPORTED, convert, scale_summary
+from .history import compute_history
 from .db import get_db
 from .models import CashBalance, Transaction, User
 from .positions import compute_portfolio
@@ -209,3 +210,25 @@ def breakdown(currency: str = Query("NZD"), user: User = Depends(current_user), 
     out["currency"] = s["currency"]
     out["warnings"] = s["warnings"] + out["warnings"]
     return out
+
+
+@router.get("/history")
+def history(currency: str = Query("NZD"), user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Daily value of your stocks, and the money you put in, in the chosen currency."""
+    currency = currency.upper()
+    if currency not in SUPPORTED:
+        raise HTTPException(400, f"currency must be one of {SUPPORTED}")
+    txs = db.scalars(select(Transaction).where(Transaction.user_id == user.id)).all()
+    result = compute_history(txs, data.get_price_histories(sorted({t.ticker for t in txs})))
+    warnings = result["warnings"]
+
+    rates = data.get_fx_rates({currency})
+    shown = currency
+    if currency != "USD" and not rates.get(currency):
+        warnings.append(f"The {currency} exchange rate is unavailable right now, so values are shown in USD.")
+        shown = "USD"
+    factor = 1.0 if shown == "USD" else float(rates[shown])
+    for p in result["points"]:  # today's rate for the whole history, like the rest of the app
+        for k in ("value", "invested", "income"):
+            p[k] = round(p[k] * factor, 2)
+    return {"currency": shown, "fx_rate": factor if shown != "USD" else None, "points": result["points"], "warnings": warnings}

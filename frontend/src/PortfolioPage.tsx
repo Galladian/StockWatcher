@@ -1,6 +1,8 @@
-import { FormEvent, Fragment, useRef, useState } from "react";
+import { FormEvent, Fragment, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Breakdown from "./Breakdown";
+import Performance from "./Performance";
+import { usePrefs } from "./prefs";
 import LoginForm from "./LoginForm";
 import { isoToDmy, localTodayIso, maskDmy, parseDmy } from "./dates";
 import {
@@ -75,7 +77,8 @@ function CashSection({ cash, shown, total }: { cash: CashAccount[]; shown: strin
     qc.invalidateQueries({ queryKey: ["breakdown"] });
   };
   const [label, setLabel] = useState("");
-  const [currency, setCurrency] = useState("NZD");
+  const { defaultCurrency } = usePrefs();
+  const [currency, setCurrency] = useState(defaultCurrency);
   const [amount, setAmount] = useState("");
 
   const add = useMutation({
@@ -137,15 +140,6 @@ function CashSection({ cash, shown, total }: { cash: CashAccount[]; shown: strin
 }
 
 // ---------- Holdings tab ----------
-function loadCurrency(): string {
-  try {
-    const saved = localStorage.getItem("portfolioCurrency");
-    return saved && CURRENCIES.includes(saved) ? saved : "NZD";
-  } catch {
-    return "NZD";
-  }
-}
-
 function Holdings({ currency, pickCurrency }: { currency: string; pickCurrency: (c: string) => void }) {
 
   const { data, error, isLoading, isFetching, refetch, dataUpdatedAt } = useQuery({
@@ -265,6 +259,8 @@ function Holdings({ currency, pickCurrency }: { currency: string; pickCurrency: 
 }
 
 // ---------- Transactions tab ----------
+const RECENT_LIMIT = 10;
+
 function Transactions() {
   const qc = useQueryClient();
   const txs = useQuery({ queryKey: ["transactions"], queryFn: listTransactions });
@@ -279,6 +275,8 @@ function Transactions() {
   const [fees, setFees] = useState("");
   const [note, setNote] = useState("");
   const [openNotes, setOpenNotes] = useState<Set<number>>(new Set());
+  const [query, setQuery] = useState("");
+  const [showAll, setShowAll] = useState(false);
   const pickerRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -297,6 +295,7 @@ function Transactions() {
     qc.invalidateQueries({ queryKey: ["transactions"] });
     qc.invalidateQueries({ queryKey: ["summary"] });
     qc.invalidateQueries({ queryKey: ["breakdown"] });
+    qc.invalidateQueries({ queryKey: ["history"] });
   };
 
   const save = useMutation({
@@ -341,6 +340,11 @@ function Transactions() {
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
+
+  // newest first already; show the latest few unless the person asks for everything
+  const needle = query.trim().toUpperCase();
+  const filtered = (txs.data ?? []).filter((t) => !needle || t.ticker.includes(needle));
+  const visible = showAll ? filtered : filtered.slice(0, RECENT_LIMIT);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -427,11 +431,23 @@ function Transactions() {
         {save.error && <p className="form-error">{(save.error as Error).message}</p>}
       </form>
 
-      <h2>Transactions</h2>
+      <div className="section-head">
+        <h2>Transactions</h2>
+        <input
+          type="search"
+          className="tx-search"
+          placeholder="Search by ticker"
+          aria-label="Search transactions by ticker"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          spellCheck={false}
+        />
+      </div>
       {txs.isLoading && <p className="muted">Loading…</p>}
       {txs.error && <p className="form-error">{(txs.error as Error).message}</p>}
       {txs.data && txs.data.length === 0 && <div className="empty">No trades yet. Add your first one above.</div>}
-      {txs.data && txs.data.length > 0 && (
+      {txs.data && txs.data.length > 0 && filtered.length === 0 && <div className="empty">No trades match "{query.trim()}".</div>}
+      {txs.data && filtered.length > 0 && (
         <div className="card table-wrap sticky-head">
           <table className="ledger">
             <thead>
@@ -442,7 +458,7 @@ function Transactions() {
               </tr>
             </thead>
             <tbody>
-              {txs.data.map((t) => {
+              {visible.map((t) => {
                 const open = openNotes.has(t.id);
                 return (
                   <Fragment key={t.id}>
@@ -484,28 +500,38 @@ function Transactions() {
           </table>
         </div>
       )}
+      {filtered.length > RECENT_LIMIT && (
+        <div className="more-row">
+          <span className="muted">Showing {visible.length} of {filtered.length}{needle ? " matching" : ""} trades</span>
+          <button onClick={() => setShowAll((v) => !v)}>
+            {showAll ? `Show only the latest ${RECENT_LIMIT}` : `Show all ${filtered.length}`}
+          </button>
+        </div>
+      )}
     </>
   );
 }
 
 // ---------- page ----------
 function PortfolioTabs() {
-  const [tab, setTab] = useState<"holdings" | "breakdown" | "transactions">("holdings");
-  const [currency, setCurrency] = useState(loadCurrency); // shared by Holdings and Breakdown
-  const pickCurrency = (c: string) => {
-    setCurrency(c);
-    try { localStorage.setItem("portfolioCurrency", c); } catch { /* ignore */ }
-  };
+  const [tab, setTab] = useState<"holdings" | "performance" | "breakdown" | "transactions">("holdings");
+  const { defaultCurrency } = usePrefs();
+  const [override, setOverride] = useState<string | null>(null); // a temporary choice from the dropdowns on this page
+  useEffect(() => setOverride(null), [defaultCurrency]);          // changing the default in Settings resets the view
+  const currency = override ?? defaultCurrency;
+  const pickCurrency = (c: string) => setOverride(c);
   return (
     <div className="scroll">
       <div className="wrap">
         <h1>Portfolio</h1>
         <div className="tabs page-tabs" role="group" aria-label="Portfolio sections">
           <button className={tab === "holdings" ? "active" : ""} onClick={() => setTab("holdings")}>Holdings</button>
+          <button className={tab === "performance" ? "active" : ""} onClick={() => setTab("performance")}>Performance</button>
           <button className={tab === "breakdown" ? "active" : ""} onClick={() => setTab("breakdown")}>Breakdown</button>
           <button className={tab === "transactions" ? "active" : ""} onClick={() => setTab("transactions")}>Transactions</button>
         </div>
         {tab === "holdings" && <Holdings currency={currency} pickCurrency={pickCurrency} />}
+        {tab === "performance" && <Performance currency={currency} onCurrency={pickCurrency} />}
         {tab === "breakdown" && <Breakdown currency={currency} onCurrency={pickCurrency} />}
         {tab === "transactions" && <Transactions />}
       </div>

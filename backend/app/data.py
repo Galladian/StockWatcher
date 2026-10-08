@@ -216,3 +216,36 @@ def get_profiles(tickers: list[str]) -> dict[str, dict | None]:
         return {}
     with ThreadPoolExecutor(max_workers=min(8, len(tickers))) as pool:
         return dict(zip(tickers, pool.map(get_profile, tickers)))
+
+
+# ---- daily history for the portfolio value chart ----
+_HISTORY_CACHE: dict[str, tuple[float, "pd.DataFrame"]] = {}
+
+
+def get_price_history(ticker: str):
+    """Daily close (adjusted for splits but not for dividends, so it matches the price you traded at)
+    plus the split ratio on each day. Cached for 15 minutes. None if unavailable."""
+    ticker = ticker.upper().strip()
+    now = time.time()
+    hit = _HISTORY_CACHE.get(ticker)
+    if hit and now - hit[0] < 900:
+        return hit[1]
+    try:
+        raw = yf.Ticker(ticker).history(period="max", interval="1d", auto_adjust=False, actions=True)
+        if raw is None or raw.empty:
+            return None
+        df = pd.DataFrame({"close": raw["Close"]})
+        df["split"] = raw["Stock Splits"] if "Stock Splits" in raw.columns else 0.0
+        df.index = pd.to_datetime(df.index).tz_localize(None).normalize()
+        df = df.dropna(subset=["close"])
+    except Exception:
+        return None
+    _HISTORY_CACHE[ticker] = (now, df)
+    return df
+
+
+def get_price_histories(tickers: list[str]) -> dict:
+    if not tickers:
+        return {}
+    with ThreadPoolExecutor(max_workers=min(8, len(tickers))) as pool:
+        return dict(zip(tickers, pool.map(get_price_history, tickers)))

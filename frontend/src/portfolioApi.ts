@@ -173,3 +173,20 @@ export interface BreakdownData {
 
 export const fetchBreakdown = (currency: string) =>
   request<BreakdownData>(`/api/portfolio/breakdown?currency=${encodeURIComponent(currency)}`);
+
+export interface HistoryPoint {
+  date: string;     // ISO date
+  value: number;    // value of your stocks that day
+  invested: number; // money put in so far: buys minus sales, fees included
+  income: number;   // dividends received so far
+}
+
+export interface HistoryData {
+  currency: string;
+  fx_rate: N;
+  points: HistoryPoint[];
+  warnings: string[];
+}
+
+export const fetchHistory = (currency: string) =>
+  request<HistoryData>(`/api/portfolio/history?currency=${encodeURIComponent(currency)}`);
