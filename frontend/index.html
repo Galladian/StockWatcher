@@ -4,13 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark light" />
-    <script>
-      try {
-        var c = localStorage.getItem("theme") || "dark";
-        var t = c === "system" ? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark") : c;
-        document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
-      } catch (e) { document.documentElement.dataset.theme = "dark"; }
-    </script>
+    <meta name="description" content="Stock charts, a market overview, a valuation screener and a portfolio tracker." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Applies the saved theme before the page paints, so there is no flash of the wrong colours.
+         It is a separate file (not inline) so the Content-Security-Policy can forbid inline scripts. -->
+    <script src="/theme-init.js"></script>
     <title>Stock Dashboard</title>
   </head>
   <body>

@@ -1,0 +1,16 @@
+# Caddy gets and renews a free HTTPS certificate for this name automatically, redirects HTTP to HTTPS,
+# and passes requests to the app.
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	request_body {
+		max_size 1MB
+	}
+
+	reverse_proxy app:8000
+}

@@ -18,9 +18,9 @@ def main() -> None:
     if not re.fullmatch(r"[a-z0-9_.-]{3,50}", username):
         sys.exit("Username must be 3-50 characters: letters, numbers, dots, dashes, underscores.")
 
-    password = getpass("Password (min 8 characters): ")
-    if len(password) < 8:
-        sys.exit("Password must be at least 8 characters.")
+    password = getpass("Password (min 10 characters): ")
+    if len(password) < 10:
+        sys.exit("Password must be at least 10 characters.")
     if getpass("Repeat password: ") != password:
         sys.exit("Passwords didn't match.")
 
