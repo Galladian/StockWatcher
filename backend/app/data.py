@@ -249,3 +249,40 @@ def get_price_histories(tickers: list[str]) -> dict:
         return {}
     with ThreadPoolExecutor(max_workers=min(8, len(tickers))) as pool:
         return dict(zip(tickers, pool.map(get_price_history, tickers)))
+
+
+# ---- bulk closes and share counts for the market overview ----
+_CLOSES_CACHE: dict[tuple, tuple[float, "pd.DataFrame"]] = {}
+
+
+def get_closes(symbols: list[str], period: str = "1y", ttl: int = 300) -> "pd.DataFrame":
+    """Daily closes (split-adjusted, not dividend-adjusted) for many symbols in one request.
+    Columns are symbols, rows are dates. Symbols the provider has nothing for are simply missing."""
+    key = (tuple(sorted(symbols)), period)
+    now = time.time()
+    hit = _CLOSES_CACHE.get(key)
+    if hit and now - hit[0] < ttl:
+        return hit[1]
+    raw = yf.download(list(symbols), period=period, interval="1d", auto_adjust=False,
+                      group_by="column", progress=False, threads=True)
+    if raw is None or raw.empty:
+        raise TickerNotFound("no price data returned")
+    if isinstance(raw.columns, pd.MultiIndex):
+        closes = raw["Close"]
+    else:  # a single symbol comes back flat on older yfinance versions
+        closes = raw[["Close"]].rename(columns={"Close": symbols[0]})
+    closes = closes.copy()
+    closes.index = pd.to_datetime(closes.index).tz_localize(None).normalize()
+    closes = closes.dropna(how="all").dropna(axis=1, how="all")
+    _CLOSES_CACHE[key] = (now, closes)
+    return closes
+
+
+def get_shares(ticker: str) -> float | None:
+    """Shares outstanding, worked out from the provider's market cap and price. None if unavailable."""
+    try:
+        fi = yf.Ticker(ticker).fast_info
+        cap, price = float(fi["marketCap"]), float(fi["lastPrice"])
+        return cap / price if cap > 0 and price > 0 else None
+    except Exception:
+        return None

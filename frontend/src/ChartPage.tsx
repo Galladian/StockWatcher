@@ -1,4 +1,5 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { fetchChart, type ChartType, type Timeframe } from "./api";
 import StockChart from "./StockChart";
@@ -19,6 +20,17 @@ export default function ChartPage() {
   const [ticker, setTicker] = useState("SPY");
   const [timeframe, setTimeframe] = useState<Timeframe>("Y");
   const [chartType, setChartType] = useState<ChartType>("candles");
+
+  // Links like /?t=NVDA (from the Overview heatmap) open that ticker, then tidy the address bar
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    const t = params.get("t")?.trim().toUpperCase();
+    if (t) {
+      setInput(t);
+      setTicker(t);
+      setParams({}, { replace: true });
+    }
+  }, [params, setParams]);
   const [panelOpen, setPanelOpen] = useState(() => {
     try { return localStorage.getItem("metricsOpen") === "1"; } catch { return false; }
   });

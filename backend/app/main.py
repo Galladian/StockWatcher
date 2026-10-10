@@ -8,6 +8,7 @@ from . import auth, portfolio
 from .config import get_secret_key
 from .data import TickerNotFound
 from .db import init_db
+from .markets import PERIODS, build_heatmap, get_indices
 from .metrics import build_metrics
 from .screener import build_screen
 from .service import TIMEFRAMES, build_chart
@@ -74,5 +75,28 @@ def screener(ticker: str):
         return build_screen(ticker)
     except TickerNotFound:
         raise HTTPException(404, f"No data found for '{ticker.upper()}'")
+    except Exception as e:  # provider/network failure
+        raise HTTPException(502, f"Data provider error: {e}")
+
+
+def _check_period(period: str) -> None:
+    if period not in PERIODS:
+        raise HTTPException(400, f"period must be one of {PERIODS}")
+
+
+@app.get("/api/markets/indices")
+def market_indices(period: str = Query("1D")):
+    _check_period(period)
+    try:
+        return get_indices(period)
+    except Exception as e:  # provider/network failure
+        raise HTTPException(502, f"Data provider error: {e}")
+
+
+@app.get("/api/markets/heatmap")
+def market_heatmap(period: str = Query("1D")):
+    _check_period(period)
+    try:
+        return build_heatmap(period)
     except Exception as e:  # provider/network failure
         raise HTTPException(502, f"Data provider error: {e}")

@@ -271,3 +271,34 @@ select.ccy { padding: 2px 6px; font-size: 12px; border-radius: 5px; }
 .hist-card { padding: 8px; }
 .hist-wrap { position: relative; height: 380px; }
 .hist-chart { position: absolute; inset: 0; }
+
+/* ---- transactions heading + search ---- */
+.tx-head { margin: 28px 0 12px; align-items: center; gap: 16px; }
+.tx-head h2 { margin: 0; }
+.tx-search { width: 240px; }
+
+/* ---- holdings: the weight bar uses the spare width ---- */
+.holdings .weight { display: flex; width: 100%; max-width: 220px; }
+.holdings .wbar { flex: 1; width: auto; min-width: 56px; }
+.wpct { min-width: 44px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---- overview ---- */
+.overview-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; margin: 0 0 16px; }
+.hm-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 20px; margin-bottom: 10px; font-size: 14px; }
+.hm-head .pos { color: var(--pos); } .hm-head .neg { color: var(--neg); }
+.hm-legend { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.hm-gradient { display: inline-block; width: 160px; height: 10px; border-radius: 5px; }
+.hm-wrap { position: relative; height: clamp(520px, 74vh, 920px); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.hm-sector { position: absolute; padding: 0 5px; font-size: 11px; font-weight: 600; line-height: 16px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.hm-sector .pos { color: var(--pos); } .hm-sector .neg { color: var(--neg); }
+/* white text on the saturated cell colours (checked for contrast), whichever theme is showing */
+.hm-cell { position: absolute; box-sizing: border-box; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; text-decoration: none; line-height: 1.15; text-align: center; box-shadow: inset 0 0 0 1px rgba(15, 20, 25, 0.45); }
+.hm-cell:hover { box-shadow: inset 0 0 0 2px #fff; z-index: 2; }
+.hm-cell:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; z-index: 2; }
+.idx-region h2 { margin: 24px 0 10px; }
+.idx-table td, .idx-table th { padding-top: 7px; padding-bottom: 7px; }
+.idx-bar-col { width: 34%; min-width: 120px; }
+.idx-bar { position: relative; display: block; height: 8px; border-radius: 4px; background: var(--line); }
+.idx-bar::after { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--muted); opacity: 0.6; }
+.idx-fill { position: absolute; top: 0; bottom: 0; border-radius: 4px; }
+.idx-fill.pos { background: var(--pos); } .idx-fill.neg { background: var(--neg); }

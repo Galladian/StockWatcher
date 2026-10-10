@@ -208,6 +208,7 @@ function Holdings({ currency, pickCurrency }: { currency: string; pickCurrency: 
                 <th>Ticker</th>
                 <th className="num">Shares</th>
                 <th className="num">Avg cost</th>
+                <th className="num">Cost basis</th>
                 <th className="num">Price</th>
                 <th className="num">Day change</th>
                 <th className="num">Market value</th>
@@ -220,8 +221,9 @@ function Holdings({ currency, pickCurrency }: { currency: string; pickCurrency: 
                 <tr key={h.ticker}>
                   <td><b>{h.ticker}</b></td>
                   <td className="num">{shares(h.shares)}</td>
-                  <td className="num">{money(h.avg_cost, shown, 4)}</td>
-                  <td className="num">{h.price === null ? "–" : money(h.price, shown, 4)}</td>
+                  <td className="num">{money(h.avg_cost, shown)}</td>
+                  <td className="num">{money(h.cost_basis, shown)}</td>
+                  <td className="num">{h.price === null ? "–" : money(h.price, shown)}</td>
                   <td className={`num ${tone(h.day_change)}`}>
                     {h.day_change === null ? "–" : <>{signedMoney(h.day_change, shown)}<div className="subline">{signedPct(h.day_change_pct)}</div></>}
                   </td>
@@ -230,7 +232,7 @@ function Holdings({ currency, pickCurrency }: { currency: string; pickCurrency: 
                     {h.weight === null ? "–" : (
                       <span className="weight">
                         <span className="wbar"><span style={{ width: `${Math.min(100, h.weight)}%` }} /></span>
-                        {h.weight.toFixed(1)}%
+                        <span className="wpct">{h.weight.toFixed(1)}%</span>
                       </span>
                     )}
                   </td>
@@ -431,7 +433,7 @@ function Transactions() {
         {save.error && <p className="form-error">{(save.error as Error).message}</p>}
       </form>
 
-      <div className="section-head">
+      <div className="section-head tx-head">
         <h2>Transactions</h2>
         <input
           type="search"
@@ -467,7 +469,7 @@ function Transactions() {
                       <td><span className={`tag ${t.type}`}>{t.type}</span></td>
                       <td><b>{t.ticker}</b></td>
                       <td className="num">{shares(t.quantity)}</td>
-                      <td className="num">{money(Number(t.price), "USD", 4)}</td>
+                      <td className="num">{money(Number(t.price), "USD")}</td>
                       <td className="num">{Number(t.fees) ? money(Number(t.fees), "USD") : "–"}</td>
                       <td className="num">{money(txTotal(t), "USD")}</td>
                       <td className="actions">
